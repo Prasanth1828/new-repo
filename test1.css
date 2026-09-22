@@ -127,11 +127,11 @@
     .qr-step-icon::after {
       content: "";
       position: absolute;
-      top: 48px; // equals icon height
+      top: --vih(48);
       left: 50%;
       transform: translateX(-50%);
-      width: 2px;
-      height: calc(100% - 48px + --vih(16));
+      width: --vih(2);
+      height: calc(100% - --vih(48) + --vih(16));
       background: var(--palette-primary-tint90, $primary2Tint90);
       z-index: 0;
     }
@@ -142,10 +142,10 @@
 .qr-step-icon {
   position: relative;
   flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  min-width: 48px;
-  min-height: 48px;
+  width: --vih(48);
+  height: --vih(48);
+  min-width: --vih(48);
+  min-height: --vih(48);
   border-radius: 50%;
   background: var(--palette-primary-tint90, $primary2Tint90);
   display: flex;
@@ -154,8 +154,8 @@
   z-index: 1;
 
   svg {
-    width: 26px;
-    height: 26px;
+    width: --vih(28);
+    height: --vih(28);
     color: var(--palette-primary-main, $primary1EquitasBlue);
     display: block;
   }
@@ -166,7 +166,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: 48px; // match icon height for vertical centering
+  min-height: --vih(48);
 }
 
 .qr-step-label {
@@ -236,9 +236,9 @@
 
 // ══════════════════════════════════════════
 // Tablet & iPad (min-width: 600px)
-// Horizontal layout for iPad Mini, Air, Pro
+// Horizontal layout for iPad Mini, Air
 // ══════════════════════════════════════════
-@media (min-width: 600px) and (max-width: $ipadpro-maxwidth) {
+@media (min-width: 600px) and (max-width: $ipadair-maxwidth) {
   .qr-container {
     margin-top: --vih(12);
     flex-wrap: nowrap;
@@ -276,26 +276,26 @@
       padding-bottom: --vih(12);
 
       .qr-step-icon::after {
-        top: 44px;
-        height: calc(100% - 44px + --vih(12));
+        top: --vih(44);
+        height: calc(100% - --vih(44) + --vih(12));
       }
     }
   }
 
   .qr-step-icon {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
+    width: --vih(44);
+    height: --vih(44);
+    min-width: --vih(44);
+    min-height: --vih(44);
 
     svg {
-      width: 24px;
-      height: 24px;
+      width: --vih(24);
+      height: --vih(24);
     }
   }
 
   .qr-step-text {
-    min-height: 44px;
+    min-height: --vih(44);
   }
 
   .qr-step-label {
@@ -366,68 +366,68 @@
   }
 
   .qr-step-item {
-    column-gap: 12px;
+    column-gap: --vih(12);
 
     &:not(:last-child) {
-      padding-bottom: 12px;
+      padding-bottom: --vih(12);
 
       .qr-step-icon::after {
-        top: 36px;
-        height: calc(100% - 36px + 12px);
+        top: --vih(36);
+        height: calc(100% - --vih(36) + --vih(12));
       }
     }
   }
 
   .qr-step-icon {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    min-height: 36px;
+    width: --vih(36);
+    height: --vih(36);
+    min-width: --vih(36);
+    min-height: --vih(36);
 
     svg {
-      width: 20px;
-      height: 20px;
+      width: --vih(23);
+      height: --vih(23);
     }
   }
 
   .qr-step-text {
-    min-height: 36px;
+    min-height: --vih(36);
   }
 
   .qr-step-label {
-    font-size: 13px;
-    line-height: 16px;
+    font-size: --vih(13);
+    line-height: --vih(16);
   }
 
   .qr-step-copy {
-    font-size: 12px;
-    line-height: 16px;
+    font-size: --vih(12);
+    line-height: --vih(16);
   }
 
   .qr-enable-hint {
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    column-gap: 8px;
-    margin-top: 14px;
-    padding-top: 10px;
+    column-gap: --vih(8);
+    margin-top: --vih(14);
+    padding-top: --vih(10);
     width: 100%;
     max-width: 92%;
     text-align: left;
 
     &__icon {
-      font-size: 18px;
-      margin-top: 2px;
+      font-size: --vih(18);
+      margin-top: --vih(2);
     }
 
     &__text {
-      font-size: 12px;
-      line-height: 16px;
+      font-size: --vih(12);
+      line-height: --vih(16);
       text-align: left;
 
       .qr-enable-hint__lead {
         display: inline;
-        margin-right: 4px;
+        margin-right: --vih(4);
       }
 
       .qr-enable-hint__mid {
