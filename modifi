@@ -1,0 +1,179 @@
+# Modified Files Summary (Git Status Changelog)
+
+This document provides a complete, file-by-file breakdown of every file modified and added in the repository as shown by `git status`.
+
+---
+
+## Summary of All Changes
+
+| # | File Path | Status | Primary Purpose / What Was Changed |
+|---|---|---|---|
+| 1 | `src/index.html` | Modified | Removed external UX4G CDN script tag (`https://cdn.ux4g.gov.in/tools/accessibility-widget.js`) so the application does not depend on remote CDNs. |
+| 2 | `src/components/index.js` | Modified | Exported the new local `AccessibilityWidget` component. |
+| 3 | `src/components/TopHeader/index.js` | Modified | Mounted `<AccessibilityWidget />` directly inside `TopHeader` and simplified the accessibility menu trigger toggle. |
+| 4 | `src/components/SideMenu/styles.scss` | Modified | Fixed drawer height clipping when zoomed (anchored with `bottom: 0 !important; height: auto !important`), added `white-space: nowrap` for menu labels, and expanded mobile drawer width to `--vih(125)`. |
+| 5 | `src/components/Header/styles.scss` | Modified | Replaced hardcoded `21.5%` drawer width on mobile/tablet with `--vih(125)` to prevent navigation text truncation. |
+| 6 | `src/layouts/styles.scss` | Modified | Fixed double scrollbars on zoom by introducing dynamic height `calc(100vh / var(--app-zoom, 1))` on outer containers. |
+| 7 | `src/components/RightNav/index.js` | Modified | Added `right-nav__navItem-card--external` modifier class exclusively to cards that navigate to external URLs (YouTube, Email, FAQs), leaving in-page dialog cards unhighlighted. |
+| 8 | `src/components/MuiTextField/index.js` | Modified | Injected accessible `aria-label` into `inputProps` derived from `label` or `name` for Screen Readers and Text-To-Speech (TTS). |
+| 9 | `src/components/MuiDropdown/index.js` | Modified | Injected accessible `aria-label` into `Select`'s `inputProps` derived from `placeholder` or `name`, and updated `propTypes`. |
+| 10 | `src/components/MuiCheckbox/index.js` | Modified | Ensured fallback `aria-label` derived from `label`, `name`, or `id`, destructured props, and added `propTypes` for `name`, `id`, and `inputProps`. |
+| 11 | `src/components/AccessibilityWidget/index.js` | New File | Created local React component wrapper invoking `useAccessibilityManager()`. |
+| 12 | `src/components/AccessibilityWidget/useAccessibilityManager.js` | New File | Full local JavaScript accessibility manager: handles widget UI, local storage settings, dynamic zoom (`--app-zoom`), custom gentle text spacing (`SPACING_LEVELS`), gentle line heights (`LINE_HEIGHT_LEVELS`), and smart Text-To-Speech resolver (`getAccessibleElementDetails`). |
+| 13 | `src/components/AccessibilityWidget/widgetStyles.scss` | New File | Cleaned and localized UX4G styles: removed duplicate green overrides on buttons/tabs, and added strict external redirect link styling. |
+| 14 | `ACCESSIBILITY_MIGRATION_STEPS.md` | New File | Step-by-step branch replication and migration guide (Steps 1 through 12). |
+
+---
+
+## Detailed File-by-File Breakdown
+
+### 1. `src/index.html` (Modified)
+- **Change**: Removed the external UX4G CDN script tag:
+  ```diff
+  - <script src="https://cdn.ux4g.gov.in/tools/accessibility-widget.js" async defer></script>
+  ```
+- **Why**: Hosting the accessibility widget locally eliminates remote CDN failures and prevents external CSS from overriding application buttons and colors at runtime.
+
+---
+
+### 2. `src/components/index.js` (Modified)
+- **Change**: Added export for the local `AccessibilityWidget`:
+  ```diff
+  + export { default as AccessibilityWidget } from "./AccessibilityWidget";
+  ```
+- **Why**: Makes the widget accessible across components and top-level pages.
+
+---
+
+### 3. `src/components/TopHeader/index.js` (Modified)
+- **Changes**:
+  1. Imported `<AccessibilityWidget />` and rendered it at the root of `TopHeader`.
+  2. Simplified `toggleUxgAccessibility()` to directly open/close `#uw-main` without unnecessary MutationObservers or fallback timeouts.
+- **Why**: Keeps the widget lifecycle bound to React while maintaining instant opening and closing from the top bar accessibility icon.
+
+---
+
+### 4. `src/components/SideMenu/styles.scss` (Modified)
+- **Changes**:
+  1. Added `white-space: nowrap;` to `.account-layout p` so menu labels ("Dashboard", "Investments", etc.) do not wrap or clip.
+  2. Replaced fixed drawer height formula with `bottom: 0 !important; height: auto !important; z-index: 1100 !important; top: calc(var(--top-header-height, 0px) + --vih(64)) !important;`.
+  3. Added mobile media query with `width: --vih(125) !important; min-width: --vih(125) !important;`.
+- **Why**: Prevents the sidebar drawer from clipping at the bottom when zoomed, and stops menu item text from being cut off on smaller screens.
+
+---
+
+### 5. `src/components/Header/styles.scss` (Modified)
+- **Changes**:
+  Replaced hardcoded `width: 21.5% !important;` with `width: --vih(125) !important; min-width: --vih(125) !important;` inside mobile and tablet media queries.
+- **Why**: Conforms with responsive viewport units (`--vih`) and ensures side drawer text remains readable across devices.
+
+---
+
+### 6. `src/layouts/styles.scss` (Modified)
+- **Changes**:
+  Dynamic viewport height adjustment using the custom `--app-zoom` variable:
+  ```diff
+  - min-height: 100vh;
+  + min-height: calc(100vh / var(--app-zoom, 1));
+  ...
+  - height: 100vh;
+  + height: calc(100vh / var(--app-zoom, 1));
+  + max-height: calc(100vh / var(--app-zoom, 1));
+  ```
+- **Why**: When the page is zoomed (e.g. 120%), an element with `100vh` physically measures `120vh`, creating an unwanted second window scrollbar. Dividing by `--app-zoom` perfectly constrains the layout to the viewport height.
+
+---
+
+### 7. `src/components/RightNav/index.js` (Modified)
+- **Changes**:
+  Appended `--external` modifier classes (`right-nav__navItem-link--external` and `right-nav__navItem-card--external`) only when `navItem.handleClick` is present.
+- **Why**: Allows the Highlight Links tool to highlight only true external navigation items (YouTube Registration Help, Email Us, FAQs) while keeping in-page action items (Customer Care phone text and WhatsApp Chat modal) unhighlighted.
+
+---
+
+### 8. `src/components/MuiTextField/index.js` (Modified)
+- **Changes**:
+  Injected accessible `aria-label` into `inputProps`:
+  ```javascript
+  inputProps={{
+    maxLength,
+    autocomplete: "new-password",
+    spellCheck: false,
+    // Accessibility: Provide explicit accessible label for screen readers and TTS
+    "aria-label": typeof label === "string" ? label : name || "Input field",
+  }}
+  ```
+- **Why**: Allows the Text-To-Speech engine and screen readers to immediately speak the field's actual label when hovering or focusing an input.
+
+---
+
+### 9. `src/components/MuiDropdown/index.js` (Modified)
+- **Changes**:
+  1. Injected accessible `aria-label` into `<Select />`'s `inputProps`:
+     ```javascript
+     inputProps={{
+       "aria-label": typeof placeholder === "string" ? placeholder : (rest?.name || "Dropdown"),
+       ...(rest?.inputProps || {}),
+     }}
+     ```
+  2. Added `name` and `inputProps` to `DropDown.propTypes`.
+- **Why**: Associates dropdown elements with their visible placeholder label so TTS speaks `"[Dropdown Name], dropdown, selected: [Option]"`.
+
+---
+
+### 10. `src/components/MuiCheckbox/index.js` (Modified)
+- **Changes**:
+  1. Destructured `name`, `id`, and `inputProps`.
+  2. Handled fallback accessible label:
+     ```javascript
+     const accessibleLabel = typeof label === "string" ? label : (name || id || "Checkbox");
+     const inputProps = { inputProps: { "aria-label": accessibleLabel, ...(customInputProps || {}) } };
+     ```
+  3. Added `name`, `id`, and `inputProps` to `MuiCheckbox.propTypes`.
+- **Why**: Fixes ESLint prop-type validation and ensures every checkbox has an explicit accessible label for TTS click and hover announcements.
+
+---
+
+### 11. `src/components/AccessibilityWidget/index.js` (New File)
+- **Contents**: React component mounting the accessibility widget:
+  ```jsx
+  import React from "react";
+  import useAccessibilityManager from "./useAccessibilityManager";
+  import "./widgetStyles.scss";
+
+  export default function AccessibilityWidget() {
+    useAccessibilityManager();
+    return null;
+  }
+  ```
+
+---
+
+### 12. `src/components/AccessibilityWidget/useAccessibilityManager.js` (New File)
+- **Key Implementations**:
+  1. **Removed Remote CDN**: Removed `<link>` tag pointing to external CDN stylesheet and nested duplicate `<html><head><body>` tags.
+  2. **Dynamic Zoom & Alignment**: Injects dynamic `:root { --app-zoom: ... }` and applies `zoom: ...` to `#root` and MUI dialogs while resetting scroll on change.
+  3. **Custom Text Spacing Progression (`SPACING_LEVELS`)**:
+     - Level 1: `letter: 0.01em, word: 0.04em`
+     - Level 2: `letter: 0.04em, word: 0.07em`
+     - Level 3: `letter: 0.06em, word: 0.10em`
+     - Safeguards font icons (`.fas`, `.ux4g-icon`) and single-digit OTP inputs from distortion.
+  4. **Custom Line Height Progression (`LINE_HEIGHT_LEVELS`)**:
+     - Levels: `1.25, 1.4, 1.55, 1.7` (prevents table and card ballooning).
+  5. **Smart Text-To-Speech (TTS) Engine**:
+     - `getAccessibleElementDetails(element)`: Resolves labels for inputs, passwords, dropdowns, checkboxes, radios, buttons, links, and text.
+     - Click listener for checkboxes: Instantly speaks `"[Label], Checked"` or `"[Label], Unchecked"`.
+     - Debounced mouseover: Smoothly speaks hovered elements without stutter.
+
+---
+
+### 13. `src/components/AccessibilityWidget/widgetStyles.scss` (New File)
+- **Key Implementations**:
+  1. Fully localized UX4G styles.
+  2. Removed blanket `button:not(...)` green styling from the original CDN CSS so standard buttons and tabs keep their original theme colors.
+  3. Highlight Links rules: Only highlights true external links (Play Store, App Store, social links, `a[target="_blank"]`, `a[href^="http"]`, and RightNav external cards). All in-page buttons, tabs, and SPA routes are explicitly reset (`revert !important`).
+
+---
+
+### 14. `ACCESSIBILITY_MIGRATION_STEPS.md` (New File)
+- **Contents**: Step-by-step documentation (Steps 1 through 12) detailing code snippets, rationale, and instructions for replicating all accessibility improvements on other branches.
