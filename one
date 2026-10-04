@@ -313,12 +313,16 @@ function onReady(fn) {
     }
 
     function speakText(text) {
-        if (!text.trim()) return;
-        const utterance = new SpeechSynthesisUtterance(text);
+        // Guard against null, undefined, or empty text
+        if (!text || !text.trim()) return;
+        // Clean multiple whitespace, tabs, and line breaks for fluent voice playback
+        const cleanText = text.replace(/\s+/g, ' ').trim();
+        const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = "en-US";
         utterance.rate = 1;
+        // Cancel any previous speech utterance to ensure immediate playback of current element
         speechSynthesisInstance.cancel();
-        speechSynthesisInstance.speak(utterance)
+        speechSynthesisInstance.speak(utterance);
     }
 
     onReady(() => {
@@ -439,128 +443,152 @@ function onReady(fn) {
     });
 
 
-    // Helper function to resolve accessible label, role, and state for any DOM element
-    function getAccessibleElementDetails(element) {
-        // Exclude internal accessibility widget elements from general application reader
-        if (!element || element.closest('.uwaw')) return "";
+    // Tracks the most recently spoken DOM node to enforce strict 'read-once' behavior per element
+    let lastSpokenNode = null;
+    // Tracks the most recently spoken text to prevent repeated speech on adjacent child transitions
+    let lastSpokenText = '';
+    // Debounce timer to ensure smooth speech triggering during rapid cursor movements
+    let ttsHoverTimer = null;
 
-        // 1. Check for Checkbox elements
-        const chk = element.tagName === "INPUT" && element.type === "checkbox"
-            ? element
-            : element.closest('.MuiCheckbox-root')?.querySelector('input[type="checkbox"]');
-        if (chk) {
-            // Resolve label from aria-label, surrounding FormControlLabel, or label tag
-            const chkLabel = chk.getAttribute("aria-label") ||
-                element.closest('.MuiFormControlLabel-root')?.querySelector('.MuiFormControlLabel-label')?.textContent ||
-                element.closest('label')?.textContent ||
-                document.querySelector(`label[for="${chk.id}"]`)?.textContent ||
-                "Checkbox";
-            const state = chk.checked ? "checked" : "not checked";
-            return `${chkLabel.trim()}, checkbox, ${state}`;
+    // Helper function to resolve accessible text, role, and label for any hovered or interacted element
+    function resolveAccessibleElement(target) {
+        // Exclude elements within the accessibility widget itself
+        if (!target || target.closest('.uwaw')) {
+            return null;
         }
 
-        // 2. Check for Radio button elements
-        const radio = element.tagName === "INPUT" && element.type === "radio"
-            ? element
-            : element.closest('.MuiRadio-root')?.querySelector('input[type="radio"]');
-        if (radio) {
-            // Resolve radio label and current selection status
-            const radioLabel = radio.getAttribute("aria-label") ||
-                element.closest('.MuiFormControlLabel-root')?.querySelector('.MuiFormControlLabel-label')?.textContent ||
-                element.closest('label')?.textContent ||
-                "Radio button";
-            const state = radio.checked ? "selected" : "not selected";
-            return `${radioLabel.trim()}, radio button, ${state}`;
+        // 1. Handle Checkboxes and Switches
+        const checkboxEl = target.matches('input[type="checkbox"]')
+            ? target
+            : target.closest('label, .MuiFormControlLabel-root, .MuiCheckbox-root, .MuiSwitch-root')?.querySelector('input[type="checkbox"]');
+        if (checkboxEl) {
+            // Determine if the checkbox acts as a switch toggle
+            const isSwitch = checkboxEl.getAttribute('role') === 'switch' || checkboxEl.closest('.mui-switch, .MuiSwitch-root');
+            // Locate the associated label from parent containers or explicit attributes
+            const parentLabel = checkboxEl.closest('.MuiFormControlLabel-root, label');
+            const labelText = parentLabel?.querySelector('.MuiFormControlLabel-label')?.textContent
+                || parentLabel?.textContent
+                || checkboxEl.getAttribute('aria-label')
+                || (checkboxEl.id ? document.querySelector(`label[for="${checkboxEl.id}"]`)?.textContent : '')
+                || '';
+            const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
+            // Determine state representation based on type
+            const stateText = isSwitch ? (checkboxEl.checked ? 'On' : 'Off') : (checkboxEl.checked ? 'Checked' : 'Unchecked');
+            const logicalNode = parentLabel || checkboxEl.closest('.MuiCheckbox-root, .MuiSwitch-root') || checkboxEl;
+            return {
+                node: logicalNode,
+                text: cleanLabel ? `${cleanLabel}, ${stateText}` : stateText
+            };
         }
 
-        // 3. Check for Select dropdown elements
-        const isSelect = element.tagName === "SELECT" ||
-            element.closest('.MuiSelect-select') ||
-            element.closest('.mui-dropdown') ||
-            element.getAttribute("role") === "combobox";
-        if (isSelect) {
-            // Retrieve dropdown placeholder / input label
-            const formCtrl = element.closest('.MuiFormControl-root, .mui-dropdown');
-            const labelEl = formCtrl?.querySelector('.MuiInputLabel-root, label');
-            const dropdownLabel = labelEl?.textContent ||
-                element.getAttribute("aria-label") ||
-                element.getAttribute("placeholder") ||
-                "Dropdown";
-            const selectEl = element.closest('.MuiSelect-select') || element;
-            const selectedText = (selectEl.textContent || "").trim();
-            const optionInfo = selectedText ? `, selected: ${selectedText}` : "";
-            return `${dropdownLabel.trim()}, dropdown${optionInfo}`;
+        // 2. Handle Radio Buttons
+        const radioEl = target.matches('input[type="radio"]')
+            ? target
+            : target.closest('label, .MuiFormControlLabel-root, .MuiRadio-root')?.querySelector('input[type="radio"]');
+        if (radioEl) {
+            const parentLabel = radioEl.closest('.MuiFormControlLabel-root, label');
+            const labelText = parentLabel?.querySelector('.MuiFormControlLabel-label')?.textContent
+                || parentLabel?.textContent
+                || radioEl.getAttribute('aria-label')
+                || '';
+            const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
+            const stateText = radioEl.checked ? 'Selected' : 'Not selected';
+            const logicalNode = parentLabel || radioEl.closest('.MuiRadio-root') || radioEl;
+            return {
+                node: logicalNode,
+                text: cleanLabel ? `${cleanLabel}, ${stateText}` : stateText
+            };
         }
 
-        // 4. Check for Text inputs, Textareas, Date pickers, and Phone inputs
-        if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
-            const type = (element.type || "text").toLowerCase();
-            const formCtrl = element.closest('.MuiFormControl-root, .mui-text-field, .MuiTextField-root, .datepicker');
-            const labelEl = formCtrl?.querySelector('.MuiInputLabel-root, label') ||
-                document.querySelector(`label[for="${element.id}"]`);
-            const inputLabel = element.getAttribute("aria-label") ||
-                labelEl?.textContent ||
-                element.placeholder ||
-                element.name ||
-                "Input field";
-
-            // Guard password values from being read aloud
-            if (type === "password") {
-                const filled = element.value ? "filled" : "empty";
-                return `${inputLabel.trim()}, password field, ${filled}`;
+        // 3. Handle Select / Dropdown Elements (Native and Material-UI)
+        const selectEl = target.closest('.MuiSelect-select, select, [role="combobox"], .mui-dropdown');
+        if (selectEl) {
+            const formControl = selectEl.closest('.MuiFormControl-root, .mui-dropdown');
+            const labelText = formControl?.querySelector('.MuiInputLabel-root, label')?.textContent
+                || selectEl.getAttribute('aria-label')
+                || selectEl.getAttribute('placeholder')
+                || '';
+            const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
+            const selectedValue = (selectEl.textContent || selectEl.value || '').replace(/\s+/g, ' ').trim();
+            let speech = cleanLabel;
+            if (selectedValue && selectedValue !== cleanLabel) {
+                speech = cleanLabel ? `${cleanLabel}, ${selectedValue}` : selectedValue;
             }
-
-            const val = element.value ? `, entered: ${element.value}` : ", empty";
-            return `${inputLabel.trim()}, input field${val}`;
+            return {
+                node: formControl || selectEl,
+                text: speech || 'Dropdown'
+            };
         }
 
-        // 5. Check for Buttons
-        const button = element.tagName === "BUTTON" ? element : element.closest('button, [role="button"]');
-        if (button) {
-            // Announce button text or accessible title
-            const btnText = button.getAttribute("aria-label") ||
-                button.innerText ||
-                button.textContent ||
-                button.title ||
-                "Button";
-            return `${btnText.trim()}, button`;
+        // 4. Handle Text Inputs, Textareas, and Date Pickers
+        const inputEl = target.matches('input, textarea')
+            ? target
+            : target.closest('.MuiInputBase-root')?.querySelector('input, textarea');
+        if (inputEl && inputEl.type !== 'checkbox' && inputEl.type !== 'radio' && inputEl.type !== 'hidden') {
+            const formControl = inputEl.closest('.MuiFormControl-root, .mui-text-field, .MuiTextField-root, .phoneNumberTextfield');
+            const labelText = formControl?.querySelector('.MuiFormLabel-root, .MuiInputLabel-root, label')?.textContent
+                || inputEl.getAttribute('aria-label')
+                || (inputEl.id ? document.querySelector(`label[for="${inputEl.id}"]`)?.textContent : '')
+                || inputEl.placeholder
+                || inputEl.name
+                || '';
+            const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
+            const isPassword = inputEl.type === 'password';
+            let speech = cleanLabel;
+            if (!speech) {
+                speech = isPassword ? 'Password' : 'Input field';
+            }
+            return {
+                node: formControl || inputEl,
+                text: speech
+            };
         }
 
-        // 6. Check for Links
-        const link = element.tagName === "A" ? element : element.closest('a');
-        if (link) {
-            // Announce link destination title or anchor text
-            const linkText = link.getAttribute("aria-label") ||
-                link.innerText ||
-                link.textContent ||
-                link.title ||
-                "Link";
-            return `${linkText.trim()}, link`;
-        }
-
-        // 7. Check for Images
-        if (element.tagName === "IMG") {
-            return element.getAttribute("alt") ||
-                element.getAttribute("aria-label") ||
-                element.getAttribute("title") ||
-                "Image";
-        }
-
-        // 8. Check for standard text elements (Headings, Paragraphs, Table cells, Labels)
-        const isTextElement = ["H1", "H2", "H3", "H4", "H5", "H6", "P", "LABEL", "TH", "TD", "LI"].includes(element.tagName);
-        if (isTextElement) {
-            const directText = (element.innerText || element.textContent || "").trim();
-            if (directText && directText.length < 200) {
-                return directText;
+        // 5. Handle Buttons and Links
+        const btnEl = target.closest('button, [role="button"], a');
+        if (btnEl) {
+            const btnText = btnEl.getAttribute('aria-label')
+                || btnEl.innerText
+                || btnEl.getAttribute('title')
+                || btnEl.textContent
+                || '';
+            const cleanText = btnText.replace(/\s+/g, ' ').trim();
+            if (cleanText) {
+                return {
+                    node: btnEl,
+                    text: cleanText
+                };
             }
         }
 
-        return "";
+        // 6. Handle Images
+        if (target.tagName === 'IMG') {
+            const altText = target.getAttribute('alt') || target.getAttribute('aria-label') || target.getAttribute('title');
+            if (altText) {
+                return {
+                    node: target,
+                    text: altText.trim()
+                };
+            }
+        }
+
+        // 7. Handle Standard UI Text Elements (Paragraphs, Headings, Spans, Labels, List Items, Table Cells)
+        if (['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'LABEL', 'TH', 'TD', 'LI', 'B', 'STRONG', 'EM', 'DIV'].includes(target.tagName)) {
+            // Avoid triggering on large layout wrappers by constraining child count and text length
+            if (target.childElementCount <= 2) {
+                const text = (target.innerText || target.textContent || '').replace(/\s+/g, ' ').trim();
+                // Avoid reading blank text or excessively long document bodies
+                if (text && text.length > 0 && text.length < 300) {
+                    return {
+                        node: target,
+                        text: text
+                    };
+                }
+            }
+        }
+
+        return null;
     }
-
-    // Track active hovered element and timeout for debouncing rapid mouse movements
-    let lastSpokenElement = null;
-    let hoverSpeechTimeout = null;
 
     document.addEventListener("click", (event) => {
         tabPressCount = 0;
@@ -569,41 +597,41 @@ function onReady(fn) {
         let element = event.target;
         if (!element || element.closest('.uwaw')) return;
 
-        // Check if an interactive checkbox or switch was clicked to speak its new state
-        const chk = element.tagName === "INPUT" && (element.type === "checkbox" || element.type === "radio")
+        // If clicking a checkbox, immediately announce its updated toggle state
+        const checkboxEl = element.matches('input[type="checkbox"]')
             ? element
-            : element.closest('.MuiCheckbox-root, .MuiSwitch-root, .MuiRadio-root')?.querySelector('input');
-
-        if (chk) {
-            // Brief timeout ensures React and native DOM have toggled the checked state
+            : element.closest('label, .MuiFormControlLabel-root, .MuiCheckbox-root, .MuiSwitch-root')?.querySelector('input[type="checkbox"]');
+        if (checkboxEl) {
+            // Slight delay allows the browser/React state to commit the checked transition
             setTimeout(() => {
-                const label = chk.getAttribute("aria-label") ||
-                    chk.closest('.MuiFormControlLabel-root')?.querySelector('.MuiFormControlLabel-label')?.textContent ||
-                    chk.closest('label')?.textContent ||
-                    document.querySelector(`label[for="${chk.id}"]`)?.textContent ||
-                    "Checkbox";
+                const isSwitch = checkboxEl.getAttribute('role') === 'switch' || checkboxEl.closest('.mui-switch, .MuiSwitch-root');
+                const parentLabel = checkboxEl.closest('.MuiFormControlLabel-root, label');
+                const labelText = parentLabel?.querySelector('.MuiFormControlLabel-label')?.textContent
+                    || parentLabel?.textContent
+                    || checkboxEl.getAttribute('aria-label')
+                    || '';
+                const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
+                const isChecked = checkboxEl.checked;
+                const stateText = isSwitch ? (isChecked ? 'On' : 'Off') : (isChecked ? 'Checked' : 'Unchecked');
+                const speech = cleanLabel ? `${cleanLabel}, ${stateText}` : stateText;
 
-                if (chk.type === "checkbox") {
-                    const status = chk.checked ? "Checked" : "Unchecked";
-                    speechSynthesisInstance.cancel();
-                    speakText(`${label.trim()}, ${status}`);
-                } else if (chk.type === "radio") {
-                    speechSynthesisInstance.cancel();
-                    speakText(`${label.trim()}, Selected`);
-                }
-            }, 50);
+                // Lock lastSpokenNode so mouseover does not immediately repeat after clicking
+                lastSpokenNode = parentLabel || checkboxEl.closest('.MuiCheckbox-root, .MuiSwitch-root') || checkboxEl;
+                lastSpokenText = speech;
+                speakText(speech);
+            }, 60);
             return;
         }
 
-        // For other elements, speak clicked text if valid
+        // For non-checkbox clickable elements, read text on click if not already read
         let clickedText = "";
         if (element.tagName === "IMG") {
             clickedText = element.getAttribute("alt") || element.getAttribute("aria-label") || element.getAttribute("title") || "Clickable image";
         } else {
             clickedText = (element.innerText || element.textContent || "").trim();
         }
-        if (clickedText && clickedText.length < 250) {
-            speechSynthesisInstance.cancel();
+        if (clickedText && screenReader && clickedText !== lastSpokenText) {
+            lastSpokenText = clickedText;
             speakText(clickedText);
         }
     });
@@ -611,7 +639,7 @@ function onReady(fn) {
     document.addEventListener("mouseup", () => {
         let selectedText = window.getSelection().toString();
         if (selectedText && screenReader) {
-            speechSynthesisInstance.cancel();
+            lastSpokenText = selectedText;
             speakText(selectedText);
         }
     });
@@ -619,23 +647,41 @@ function onReady(fn) {
     document.addEventListener("mouseover", (event) => {
         if (!screenReader) return;
 
-        let element = event.target;
-        if (!element || element.closest('.uwaw')) return;
+        const target = event.target;
+        if (!target || target.closest('.uwaw')) return;
 
-        // Prevent repeated triggers when moving within the same element
-        if (element === lastSpokenElement) return;
+        const info = resolveAccessibleElement(target);
+        if (!info || !info.text) return;
 
-        const accessibleInfo = getAccessibleElementDetails(element);
-        if (!accessibleInfo) return;
+        // Strict 'Read Once' enforcement: if cursor is still within the same logical entity, skip speaking again
+        if (lastSpokenNode && (lastSpokenNode === info.node || lastSpokenNode.contains(target))) {
+            return;
+        }
 
-        lastSpokenElement = element;
+        // Prevent repeated speech if identical text is encountered on linked child wrappers
+        if (lastSpokenText === info.text && lastSpokenNode && lastSpokenNode.contains(target)) {
+            return;
+        }
 
-        // Debounce speech by 140ms to avoid stutter during fast cursor movements
-        clearTimeout(hoverSpeechTimeout);
-        hoverSpeechTimeout = setTimeout(() => {
-            speechSynthesisInstance.cancel();
-            speakText(accessibleInfo);
-        }, 140);
+        clearTimeout(ttsHoverTimer);
+        // Small debounce prevents stuttering and audio clipping when rapidly sweeping mouse across page
+        ttsHoverTimer = setTimeout(() => {
+            if (!screenReader) return;
+
+            // Commit the active logical entity and speech text
+            lastSpokenNode = info.node;
+            lastSpokenText = info.text;
+
+            speakText(info.text);
+        }, 120);
+    });
+
+    document.addEventListener("mouseout", (event) => {
+        // Reset last spoken node when mouse completely exits its bounding tree into an unrelated target
+        if (lastSpokenNode && event.relatedTarget && !lastSpokenNode.contains(event.relatedTarget)) {
+            // Allows the element to be re-read if the user deliberately navigates back to it later
+            lastSpokenNode = null;
+        }
     });
 
     function toggleTextToSpeech() {
@@ -1694,7 +1740,7 @@ onReady(function () {
 })();
 
 
-CSS============================================
+==========================CSS=======================
 @font-face {
   font-family: 'Open-Dyslexic';
   font-style: normal;
@@ -2630,25 +2676,11 @@ body[data-gr-ext-installed] {
   outline: none !important;
 }
 
-/* Accessibility: Explicitly reset all in-page elements, internal SPA route buttons, tabs, and form submissions */
+/* Accessibility: Ensure internal buttons, tabs, and in-page controls have no outline added by highlight links */
 .ux4g-accessibility-highlight-links button:not(#uw-main button):not(.right-nav__navItem-link--external),
-.ux4g-accessibility-highlight-links .rightNavButton,
-.ux4g-accessibility-highlight-links .right-nav__language-btn,
-.ux4g-accessibility-highlight-links .login-page__register-button,
-.ux4g-accessibility-highlight-links .login-page__forgot-link,
-.ux4g-accessibility-highlight-links .account-layout,
-.ux4g-accessibility-highlight-links .headerNotification__logout,
-.ux4g-accessibility-highlight-links .top-header-bar__action-text,
-.ux4g-accessibility-highlight-links .login-page__login-button,
-.ux4g-accessibility-highlight-links .password_eye_icon,
-.ux4g-accessibility-highlight-links .login-page__keyboard-button,
-.ux4g-accessibility-highlight-links .captcha-page button,
 .ux4g-accessibility-highlight-links [role="tab"],
-.ux4g-accessibility-highlight-links .MuiTab-root,
-.ux4g-accessibility-highlight-links .login-page__journeys-list .MuiButton-root {
-  /* Accessibility: Remove any outline, background, or text highlight styles from non-external elements */
-  background: revert !important;
-  color: revert !important;
+.ux4g-accessibility-highlight-links .MuiTab-root {
+  /* Accessibility: Prevent any outline without overriding component background or text color */
   outline: none !important;
 }
 
@@ -3032,15 +3064,3 @@ body.accessibility-loading {
     height: calc(100vh - 170px) !important;
   }
 }
-
-
-
-jsx
-import "./useAccessibilityManager";
-import "./widgetStyles.scss";
-
-export default function AccessibilityWidget() {
-  return null;
-}
-
-
