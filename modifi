@@ -1,179 +1,297 @@
-# Modified Files Summary (Git Status Changelog)
+# Accessibility Integration - Git Modified Files & Changes Report
 
-This document provides a complete, file-by-file breakdown of every file modified and added in the repository as shown by `git status`.
-
----
-
-## Summary of All Changes
-
-| # | File Path | Status | Primary Purpose / What Was Changed |
-|---|---|---|---|
-| 1 | `src/index.html` | Modified | Removed external UX4G CDN script tag (`https://cdn.ux4g.gov.in/tools/accessibility-widget.js`) so the application does not depend on remote CDNs. |
-| 2 | `src/components/index.js` | Modified | Exported the new local `AccessibilityWidget` component. |
-| 3 | `src/components/TopHeader/index.js` | Modified | Mounted `<AccessibilityWidget />` directly inside `TopHeader` and simplified the accessibility menu trigger toggle. |
-| 4 | `src/components/SideMenu/styles.scss` | Modified | Fixed drawer height clipping when zoomed (anchored with `bottom: 0 !important; height: auto !important`), added `white-space: nowrap` for menu labels, and expanded mobile drawer width to `--vih(125)`. |
-| 5 | `src/components/Header/styles.scss` | Modified | Replaced hardcoded `21.5%` drawer width on mobile/tablet with `--vih(125)` to prevent navigation text truncation. |
-| 6 | `src/layouts/styles.scss` | Modified | Fixed double scrollbars on zoom by introducing dynamic height `calc(100vh / var(--app-zoom, 1))` on outer containers. |
-| 7 | `src/components/RightNav/index.js` | Modified | Added `right-nav__navItem-card--external` modifier class exclusively to cards that navigate to external URLs (YouTube, Email, FAQs), leaving in-page dialog cards unhighlighted. |
-| 8 | `src/components/MuiTextField/index.js` | Modified | Injected accessible `aria-label` into `inputProps` derived from `label` or `name` for Screen Readers and Text-To-Speech (TTS). |
-| 9 | `src/components/MuiDropdown/index.js` | Modified | Injected accessible `aria-label` into `Select`'s `inputProps` derived from `placeholder` or `name`, and updated `propTypes`. |
-| 10 | `src/components/MuiCheckbox/index.js` | Modified | Ensured fallback `aria-label` derived from `label`, `name`, or `id`, destructured props, and added `propTypes` for `name`, `id`, and `inputProps`. |
-| 11 | `src/components/AccessibilityWidget/index.js` | New File | Created local React component wrapper invoking `useAccessibilityManager()`. |
-| 12 | `src/components/AccessibilityWidget/useAccessibilityManager.js` | New File | Full local JavaScript accessibility manager: handles widget UI, local storage settings, dynamic zoom (`--app-zoom`), custom gentle text spacing (`SPACING_LEVELS`), gentle line heights (`LINE_HEIGHT_LEVELS`), and smart Text-To-Speech resolver (`getAccessibleElementDetails`). |
-| 13 | `src/components/AccessibilityWidget/widgetStyles.scss` | New File | Cleaned and localized UX4G styles: removed duplicate green overrides on buttons/tabs, and added strict external redirect link styling. |
-| 14 | `ACCESSIBILITY_MIGRATION_STEPS.md` | New File | Step-by-step branch replication and migration guide (Steps 1 through 12). |
+This document consolidates all changes shown in `git status` for the accessibility integration, including the exact diffs and newly created files.
 
 ---
 
-## Detailed File-by-File Breakdown
+## 1. Git Status Overview
 
-### 1. `src/index.html` (Modified)
-- **Change**: Removed the external UX4G CDN script tag:
-  ```diff
-  - <script src="https://cdn.ux4g.gov.in/tools/accessibility-widget.js" async defer></script>
-  ```
-- **Why**: Hosting the accessibility widget locally eliminates remote CDN failures and prevents external CSS from overriding application buttons and colors at runtime.
+```bash
+On branch main
+Changes not staged for commit:
+  modified:   src/components/Header/styles.scss
+  modified:   src/components/RightNav/index.js
+  modified:   src/components/SideMenu/styles.scss
+  modified:   src/components/TopHeader/index.js
+  modified:   src/components/index.js
+  modified:   src/index.html
+  modified:   src/layouts/styles.scss
 
----
-
-### 2. `src/components/index.js` (Modified)
-- **Change**: Added export for the local `AccessibilityWidget`:
-  ```diff
-  + export { default as AccessibilityWidget } from "./AccessibilityWidget";
-  ```
-- **Why**: Makes the widget accessible across components and top-level pages.
-
----
-
-### 3. `src/components/TopHeader/index.js` (Modified)
-- **Changes**:
-  1. Imported `<AccessibilityWidget />` and rendered it at the root of `TopHeader`.
-  2. Simplified `toggleUxgAccessibility()` to directly open/close `#uw-main` without unnecessary MutationObservers or fallback timeouts.
-- **Why**: Keeps the widget lifecycle bound to React while maintaining instant opening and closing from the top bar accessibility icon.
+Untracked files:
+  src/components/AccessibilityWidget/
+    ├── index.js
+    ├── useAccessibilityManager.js
+    └── widgetStyles.scss
+  ACCESSIBILITY_MIGRATION_STEPS.md
+```
 
 ---
 
-### 4. `src/components/SideMenu/styles.scss` (Modified)
-- **Changes**:
-  1. Added `white-space: nowrap;` to `.account-layout p` so menu labels ("Dashboard", "Investments", etc.) do not wrap or clip.
-  2. Replaced fixed drawer height formula with `bottom: 0 !important; height: auto !important; z-index: 1100 !important; top: calc(var(--top-header-height, 0px) + --vih(64)) !important;`.
-  3. Added mobile media query with `width: --vih(125) !important; min-width: --vih(125) !important;`.
-- **Why**: Prevents the sidebar drawer from clipping at the bottom when zoomed, and stops menu item text from being cut off on smaller screens.
+## 2. Summary of Modified Files
+
+| S.No | File Path | Type | Purpose of Change |
+| :--- | :--- | :--- | :--- |
+| 1 | `src/index.html` | Modified | Removed remote CDN script `https://cdn.ux4g.gov.in/tools/accessibility-widget.js` to enable 100% offline self-hosting. |
+| 2 | `src/components/index.js` | Modified | Exported `AccessibilityWidget` component. |
+| 3 | `src/components/TopHeader/index.js` | Modified | Rendered `<AccessibilityWidget />` and simplified `toggleUxgAccessibility` to toggle `#uw-main` drawer directly. |
+| 4 | `src/components/SideMenu/styles.scss` | Modified | Anchored drawer to `bottom: 0 !important; height: auto !important;` with top offset `calc(var(--top-header-height, 0px) + --vih(64))` to prevent bottom clipping when zoomed; expanded mobile/tablet width with `--vih(125)` and added `white-space: nowrap`. |
+| 5 | `src/components/Header/styles.scss` | Modified | Updated mobile and tablet drawer widths to `--vih(125) !important` to prevent menu label truncation. |
+| 6 | `src/layouts/styles.scss` | Modified | Fixed double scrollbars by scaling layout height with dynamic CSS variable `calc(100vh / var(--app-zoom, 1))`. |
+| 7 | `src/components/RightNav/index.js` | Modified | Attached `.right-nav__navItem-card--external` only to items navigating to external links (YouTube, Mailto, FAQs), keeping Customer Care and WhatsApp Chat unhighlighted. |
+| 8 | `src/components/AccessibilityWidget/index.js` | New | Entry point for the accessibility widget. |
+| 9 | `src/components/AccessibilityWidget/useAccessibilityManager.js` | New | Complete widget manager logic with self-contained HTML/CSS, dynamic `--app-zoom`, controlled `SPACING_LEVELS`, controlled `LINE_HEIGHT_LEVELS`, and intelligent Text-To-Speech with strict 'read-once' behavior. |
+| 10 | `src/components/AccessibilityWidget/widgetStyles.scss` | New | Localized widget styling, high-contrast external link highlights (`#444701` and yellow outline), without turning normal/close buttons gray. |
+| 11 | `ACCESSIBILITY_MIGRATION_STEPS.md` | New | Step-by-step branch migration and replication instructions. |
 
 ---
 
-### 5. `src/components/Header/styles.scss` (Modified)
-- **Changes**:
-  Replaced hardcoded `width: 21.5% !important;` with `width: --vih(125) !important; min-width: --vih(125) !important;` inside mobile and tablet media queries.
-- **Why**: Conforms with responsive viewport units (`--vih`) and ensures side drawer text remains readable across devices.
+## 3. Exact Git Diffs for Existing Application Files
+
+### 1) `src/index.html`
+```diff
+@@ -147,7 +147,6 @@
+         });
+       });
+     </script>
+-    <script src="https://cdn.ux4g.gov.in/tools/accessibility-widget.js" async defer></script>
+   </head>
+   <body>
+     <div id="root"></div>
+```
 
 ---
 
-### 6. `src/layouts/styles.scss` (Modified)
-- **Changes**:
-  Dynamic viewport height adjustment using the custom `--app-zoom` variable:
-  ```diff
-  - min-height: 100vh;
-  + min-height: calc(100vh / var(--app-zoom, 1));
-  ...
-  - height: 100vh;
-  + height: calc(100vh / var(--app-zoom, 1));
-  + max-height: calc(100vh / var(--app-zoom, 1));
-  ```
-- **Why**: When the page is zoomed (e.g. 120%), an element with `100vh` physically measures `120vh`, creating an unwanted second window scrollbar. Dividing by `--app-zoom` perfectly constrains the layout to the viewport height.
+### 2) `src/components/index.js`
+```diff
+@@ -33,3 +33,4 @@ export { default as MuiInfoButton } from "./MuiInfoButton";
+ export { default as RazorpayCheckout } from "./RazorpayCheckout";
+ export { default as DenominationCounter } from "./DenominationCounter";
+ export { default as TopHeader } from "./TopHeader";
++export { default as AccessibilityWidget } from "./AccessibilityWidget";
+```
 
 ---
 
-### 7. `src/components/RightNav/index.js` (Modified)
-- **Changes**:
-  Appended `--external` modifier classes (`right-nav__navItem-link--external` and `right-nav__navItem-card--external`) only when `navItem.handleClick` is present.
-- **Why**: Allows the Highlight Links tool to highlight only true external navigation items (YouTube Registration Help, Email Us, FAQs) while keeping in-page action items (Customer Care phone text and WhatsApp Chat modal) unhighlighted.
+### 3) `src/components/TopHeader/index.js`
+```diff
+@@ -11,6 +11,7 @@ import PropTypes from "prop-types";
+ import { updateLanguage } from "../../pages/actions";
+ import { languageRequest, updateSelectedLanguage } from "../../models/LoginRegistration/actions";
+ import { updateLanguagePofile } from "../../models/Profile/actions";
++import AccessibilityWidget from "../AccessibilityWidget";
+ import "./styles.scss";
+ 
+ const TOP_HEADER_HEIGHT = "42px";
+@@ -175,37 +176,24 @@ const TopHeader = ({ isVisible: externalIsVisible, onClose }) => {
+   }, [onClose]);
+ 
+   const toggleUxgAccessibility = useCallback(() => {
++    const menu = document.getElementById("uw-main");
++    if (menu) {
++      const isVisible = menu.style.right === "0px" || menu.style.right === "0";
++      if (isVisible) {
++        menu.style.right = "-530px";
++      } else {
++        menu.style.right = "0";
++        menu.style.display = "flex";
++      }
++      return;
++    }
++
+     const trigger =
+       document.getElementById("uw-widget-custom-trigger") ||
+       document.getElementById("open-the-accessibility-menu");
+-
+     if (trigger) {
+       trigger.click();
+-      return;
+     }
+-
+-    const observer = new MutationObserver(() => {
+-      const nextTrigger =
+-        document.getElementById("uw-widget-custom-trigger") ||
+-        document.getElementById("open-the-accessibility-menu");
+-
+-      if (nextTrigger) {
+-        nextTrigger.click();
+-        observer.disconnect();
+-        clearTimeout(fallbackTimeout);
+-      }
+-    });
+-
+-    observer.observe(document.body, { childList: true, subtree: true });
+-
+-    let fallbackTimeout = setTimeout(() => {
+-      observer.disconnect();
+-      const accessibilityMenu = document.getElementById("uw-main");
+-      if (accessibilityMenu) {
+-        accessibilityMenu.style.display =
+-          accessibilityMenu.style.display === "none" ? "flex" : "none";
+-      }
+-    }, 3000);
+   }, []);
+ 
+   if (!isVisible) return null;
+@@ -283,6 +271,7 @@ const TopHeader = ({ isVisible: externalIsVisible, onClose }) => {
+           )}
+         </Box>
+       </Box>
++      <AccessibilityWidget />
+     </Box>
+   );
+ };
+```
 
 ---
 
-### 8. `src/components/MuiTextField/index.js` (Modified)
-- **Changes**:
-  Injected accessible `aria-label` into `inputProps`:
-  ```javascript
-  inputProps={{
-    maxLength,
-    autocomplete: "new-password",
-    spellCheck: false,
-    // Accessibility: Provide explicit accessible label for screen readers and TTS
-    "aria-label": typeof label === "string" ? label : name || "Input field",
-  }}
-  ```
-- **Why**: Allows the Text-To-Speech engine and screen readers to immediately speak the field's actual label when hovering or focusing an input.
+### 4) `src/components/SideMenu/styles.scss`
+```diff
+@@ -16,6 +16,8 @@
+     font-size: --vih(18);
+     text-align: center;
+     line-height: unset;
++    /* Ensure single-word labels like Dashboard and Investments do not break or clip */
++    white-space: nowrap;
+   }
+ 
+   &.active p {
+@@ -50,14 +52,22 @@
+   bottom: 0;
+   .MuiDrawer-paper {
+     background-color: var(--palette-primary-neutralLightestprimary1Shade50);
+-    top: calc(var(--top-header-height, 0) + --vih(52)) !important;
+-    height: calc(100vh - (var(--top-header-height, 0) + --vih(64))) !important;
++    top: calc(var(--top-header-height, 0px) + --vih(64)) !important;
++    bottom: 0 !important;
++    height: auto !important;
++    z-index: 1100 !important;
+     width: 5.55% !important;
+     min-width: 5.55% !important;
+     overflow-y: auto !important;
+     scrollbar-width: none !important;
+     -ms-overflow-style: none !important;
+ 
++    @media only screen and (max-width: $ipad-maxwidth) {
++      /* Expand drawer width using --vih on mobile so menu labels have ample room without clipping */
++      width: --vih(125) !important;
++      min-width: --vih(125) !important;
++    }
++
+     &::-webkit-scrollbar {
+       display: none !important;
+       width: 0 !important;
+```
 
 ---
 
-### 9. `src/components/MuiDropdown/index.js` (Modified)
-- **Changes**:
-  1. Injected accessible `aria-label` into `<Select />`'s `inputProps`:
-     ```javascript
-     inputProps={{
-       "aria-label": typeof placeholder === "string" ? placeholder : (rest?.name || "Dropdown"),
-       ...(rest?.inputProps || {}),
-     }}
-     ```
-  2. Added `name` and `inputProps` to `DropDown.propTypes`.
-- **Why**: Associates dropdown elements with their visible placeholder label so TTS speaks `"[Dropdown Name], dropdown, selected: [Option]"`.
+### 5) `src/components/Header/styles.scss`
+```diff
+@@ -321,7 +321,9 @@ $color: #b3e5fc;
+     }
+   }
+   .sideMenu .MuiDrawer-paper {
+-    width: 21.5% !important;
++    /* Set mobile drawer width using --vih so menu labels are not cut off */
++    width: --vih(125) !important;
++    min-width: --vih(125) !important;
+   }
+   .searchbutton {
+     position: relative;
+@@ -416,7 +418,9 @@ $color: #b3e5fc;
+     }
+   }
+   .sideMenu .MuiDrawer-paper {
+-    width: 21.5% !important;
++    /* Set tablet drawer width using --vih so menu labels are not cut off */
++    width: --vih(125) !important;
++    min-width: --vih(125) !important;
+   }
+   .searchbutton {
+     position: relative;
+```
 
 ---
 
-### 10. `src/components/MuiCheckbox/index.js` (Modified)
-- **Changes**:
-  1. Destructured `name`, `id`, and `inputProps`.
-  2. Handled fallback accessible label:
-     ```javascript
-     const accessibleLabel = typeof label === "string" ? label : (name || id || "Checkbox");
-     const inputProps = { inputProps: { "aria-label": accessibleLabel, ...(customInputProps || {}) } };
-     ```
-  3. Added `name`, `id`, and `inputProps` to `MuiCheckbox.propTypes`.
-- **Why**: Fixes ESLint prop-type validation and ensures every checkbox has an explicit accessible label for TTS click and hover announcements.
+### 6) `src/layouts/styles.scss`
+```diff
+@@ -6,11 +6,15 @@
+   &__outer-container {
+     display: flex;
+     overflow: hidden;
+-    min-height: 100vh;
++    /* Dynamically adjust min-height based on accessibility zoom to prevent window overflow */
++    min-height: calc(100vh / var(--app-zoom, 1));
+     background: var(--palette-primary-primaryTheme);
+     &.logged-in {
+       background: var(--palette-primary-secondaryTheme);
+-      height: 100vh;
++      /* Dynamically scale container height so that zoomed #root exactly matches viewport height */
++      height: calc(100vh / var(--app-zoom, 1));
++      /* Constrain maximum height to prevent outer browser window scrollbar creation */
++      max-height: calc(100vh / var(--app-zoom, 1));
+       .mui-container {
+         margin-bottom: calc(var(--vih) * 48);
+       }
+```
 
 ---
 
-### 11. `src/components/AccessibilityWidget/index.js` (New File)
-- **Contents**: React component mounting the accessibility widget:
-  ```jsx
-  import React from "react";
-  import useAccessibilityManager from "./useAccessibilityManager";
-  import "./widgetStyles.scss";
-
-  export default function AccessibilityWidget() {
-    useAccessibilityManager();
-    return null;
-  }
-  ```
-
----
-
-### 12. `src/components/AccessibilityWidget/useAccessibilityManager.js` (New File)
-- **Key Implementations**:
-  1. **Removed Remote CDN**: Removed `<link>` tag pointing to external CDN stylesheet and nested duplicate `<html><head><body>` tags.
-  2. **Dynamic Zoom & Alignment**: Injects dynamic `:root { --app-zoom: ... }` and applies `zoom: ...` to `#root` and MUI dialogs while resetting scroll on change.
-  3. **Custom Text Spacing Progression (`SPACING_LEVELS`)**:
-     - Level 1: `letter: 0.01em, word: 0.04em`
-     - Level 2: `letter: 0.04em, word: 0.07em`
-     - Level 3: `letter: 0.06em, word: 0.10em`
-     - Safeguards font icons (`.fas`, `.ux4g-icon`) and single-digit OTP inputs from distortion.
-  4. **Custom Line Height Progression (`LINE_HEIGHT_LEVELS`)**:
-     - Levels: `1.25, 1.4, 1.55, 1.7` (prevents table and card ballooning).
-  5. **Smart Text-To-Speech (TTS) Engine**:
-     - `getAccessibleElementDetails(element)`: Resolves labels for inputs, passwords, dropdowns, checkboxes, radios, buttons, links, and text.
-     - Click listener for checkboxes: Instantly speaks `"[Label], Checked"` or `"[Label], Unchecked"`.
-     - Debounced mouseover: Smoothly speaks hovered elements without stutter.
-
----
-
-### 13. `src/components/AccessibilityWidget/widgetStyles.scss` (New File)
-- **Key Implementations**:
-  1. Fully localized UX4G styles.
-  2. Removed blanket `button:not(...)` green styling from the original CDN CSS so standard buttons and tabs keep their original theme colors.
-  3. Highlight Links rules: Only highlights true external links (Play Store, App Store, social links, `a[target="_blank"]`, `a[href^="http"]`, and RightNav external cards). All in-page buttons, tabs, and SPA routes are explicitly reset (`revert !important`).
+### 7) `src/components/RightNav/index.js`
+```diff
+@@ -115,8 +115,11 @@ function RightNav(props) {
+                   ? onDialogOpen
+                   : navItem.handleClick
+               }
++              // Accessibility: Keep link wrapper identifiable for external redirect targets
+               className={`right-nav__navItem-link ${
+                 !open ? "closedState" : ""
++              } ${
++                navItem.handleClick ? "right-nav__navItem-link--external" : ""
+               }`}
+               key={index}
+             >
+@@ -127,12 +130,15 @@ function RightNav(props) {
+                   border: `0.5px solid ${theme.palette.primary.tint80}`,
+                 }}
+                 aria-label="Help Section"
++                // Accessibility: Attach external modifier class only for cards that navigate to an external URL (YouTube, Mailto, FAQs)
+                 className={`right-nav__navItem-card ${
+                   matches || open ? "right-nav__navItem-card--open" : ""
+                 } ${
+                   navItem.additionalDetails
+                     ? "right-nav__navItem-card--additional"
+                     : ""
++                } ${
++                  navItem.handleClick ? "right-nav__navItem-card--external" : ""
+                 }`}
+               >
+                 <CardContent className="right-nav__navItem-card-content">
+```
 
 ---
 
-### 14. `ACCESSIBILITY_MIGRATION_STEPS.md` (New File)
-- **Contents**: Step-by-step documentation (Steps 1 through 12) detailing code snippets, rationale, and instructions for replicating all accessibility improvements on other branches.
+## 4. Newly Created Files (`src/components/AccessibilityWidget/`)
+
+### `src/components/AccessibilityWidget/index.js`
+```javascript
+import "./useAccessibilityManager";
+import "./widgetStyles.scss";
+
+export default function AccessibilityWidget() {
+  return null;
+}
+```
+
+### `src/components/AccessibilityWidget/useAccessibilityManager.js`
+Contains:
+- Self-contained widget DOM creation (zero remote CDN dependencies).
+- App zoom calculations with dynamic `--app-zoom` variable.
+- Controlled 3x text spacing array (`SPACING_LEVELS`).
+- Controlled 4x line height progression (`LINE_HEIGHT_LEVELS`).
+- Intelligent TTS element resolver (`resolveAccessibleElement`) with strict 'read-once' behavior and instant checkbox click feedback.
+
+### `src/components/AccessibilityWidget/widgetStyles.scss`
+Contains:
+- Complete UX4G localized styling.
+- External-only link highlights with dark olive background (`#444701`) and yellow outline (`yellow`).
+- Neutral button isolation (no `background: revert`, preventing buttons and dialog close buttons from turning gray).
