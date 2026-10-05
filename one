@@ -315,8 +315,13 @@ function onReady(fn) {
     function speakText(text) {
         // Guard against null, undefined, or empty text
         if (!text || !text.trim()) return;
-        // Clean multiple whitespace, tabs, and line breaks for fluent voice playback
-        const cleanText = text.replace(/\s+/g, ' ').trim();
+        // Clean multiple whitespace, tabs, line breaks, and punctuation (commas, colons, etc.) so TTS never pronounces punctuation words
+        const cleanText = text
+            .replace(/,/g, ' ')
+            .replace(/[;:|/\\_]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!cleanText) return;
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = "en-US";
         utterance.rate = 1;
@@ -450,6 +455,118 @@ function onReady(fn) {
     // Debounce timer to ensure smooth speech triggering during rapid cursor movements
     let ttsHoverTimer = null;
 
+    // Helper function to extract ONLY the visible label name for Radio Buttons (native and custom SVG radios)
+    function extractRadioLabel(radioEl, container) {
+        if (!radioEl && !container) return '';
+
+        const baseEl = container || radioEl;
+
+        // 1. Check parent FormControlLabel container (standard Material-UI MuiRadio)
+        const parentLabel = baseEl.closest('.MuiFormControlLabel-root, label');
+        if (parentLabel) {
+            // Target the specific label typography container if available
+            const muiLabel = parentLabel.querySelector('.MuiFormControlLabel-label');
+            if (muiLabel && muiLabel.textContent.trim()) {
+                return muiLabel.textContent.replace(/\s+/g, ' ').trim();
+            }
+            // For custom label markup (e.g. PlanDetails, NewMobileRecharge), clone node and strip input, svg, and ripple elements
+            const clone = parentLabel.cloneNode(true);
+            clone.querySelectorAll('input, svg, .MuiRadio-root, .MuiTouchRipple-root, [class*="radio-"]').forEach(n => n.remove());
+            const pureText = clone.textContent.replace(/\s+/g, ' ').trim();
+            if (pureText) return pureText;
+        }
+
+        // 2. Check MuiButton container with type="radio" (e.g. AddPayee, SelfTransfer, Beneficiary Selection)
+        const muiButton = baseEl.closest('.mui-button, button');
+        if (muiButton) {
+            const clone = muiButton.cloneNode(true);
+            clone.querySelectorAll('input, svg, .MuiTouchRipple-root').forEach(n => n.remove());
+            const btnText = clone.textContent.replace(/\s+/g, ' ').trim();
+            if (btnText) return btnText;
+        }
+
+        // 3. Check card / row container (e.g. SelectBankAccount, mobile recharge plan card, etc.)
+        const card = baseEl.closest('.select-bank-account__card, .mobile-recharge-plan__card, .new-recharge__history-card, .account-item, .account-container, tr, td, li');
+        if (card) {
+            const bankName = card.querySelector('.select-bank-account__card-bank-name')?.textContent?.trim();
+            const acctNo = card.querySelector('.select-bank-account__card-acct-no')?.textContent?.trim();
+            const acctVal = card.querySelector('.select-bank-account__card-value')?.textContent?.trim();
+            if (bankName || acctVal) {
+                return [bankName, acctNo, acctVal].filter(Boolean).join(' ');
+            }
+            const titleEl = card.querySelector('.mobile-recharge-plan__amount, .new-recharge__history-amount, .account-info, .account-type, .account-title');
+            if (titleEl && titleEl.textContent.trim()) {
+                return titleEl.textContent.replace(/\s+/g, ' ').trim();
+            }
+            const clone = card.cloneNode(true);
+            clone.querySelectorAll('input, svg, .MuiRadio-root, .MuiTouchRipple-root, [class*="radio-"]').forEach(n => n.remove());
+            const cardText = clone.textContent.replace(/\s+/g, ' ').trim();
+            if (cardText && cardText.length < 150) return cardText;
+        }
+
+        // 4. Check explicit ARIA label attributes or linked label[for]
+        if (radioEl) {
+            if (radioEl.getAttribute('aria-label')) {
+                return radioEl.getAttribute('aria-label').trim();
+            }
+            if (radioEl.id) {
+                const forLabel = document.querySelector(`label[for="${radioEl.id}"]`);
+                if (forLabel && forLabel.textContent.trim()) {
+                    return forLabel.textContent.replace(/\s+/g, ' ').trim();
+                }
+            }
+        }
+
+        // 5. Fallback to name attribute ONLY if it is human-readable and NOT a framework technical identifier
+        const technicalNames = ['controlled-radio-buttons-group', 'select', 'virtualid', 'product', 'radio', 'options', 'customradio'];
+        const rawName = (radioEl && (radioEl.getAttribute('name') || radioEl.name))
+            || (container && container.getAttribute('name'));
+        if (rawName && typeof rawName === 'string' && !technicalNames.includes(rawName.toLowerCase())) {
+            return rawName.replace(/([A-Z])/g, ' $1').replace(/[-_]/g, ' ').trim();
+        }
+
+        return '';
+    }
+
+    // Helper function to resolve exact text for buttons and links, handling broken '[object Object]' aria-labels and icon-only links
+    function resolveLinkOrButtonText(btnEl) {
+        if (!btnEl) return '';
+
+        // 1. Check valid aria-label (ignore broken '[object Object]' injected when React elements are passed to aria-label)
+        const rawAria = btnEl.getAttribute('aria-label');
+        if (rawAria && !rawAria.includes('[object Object]') && !rawAria.toLowerCase().includes('object object')) {
+            const cleanAria = rawAria.replace(/\s+/g, ' ').trim();
+            if (cleanAria) return cleanAria;
+        }
+
+        // 2. Check visible innerText or textContent (e.g. Forgot User ID, Forgot Password, Register)
+        const rawText = btnEl.innerText || btnEl.textContent || '';
+        const cleanText = rawText.replace(/\s+/g, ' ').trim();
+        if (cleanText) return cleanText;
+
+        // 3. Check title attribute
+        const titleAttr = btnEl.getAttribute('title');
+        if (titleAttr && titleAttr.trim()) return titleAttr.trim();
+
+        // 4. Check nested SVG title or alt attribute
+        const svgAlt = btnEl.querySelector('svg')?.getAttribute('aria-label') || btnEl.querySelector('img')?.getAttribute('alt');
+        if (svgAlt && svgAlt.trim()) return svgAlt.trim();
+
+        // 5. Intelligent Fallback for Icon-only Social Media and Store Links (e.g. Google Play, App Store, X, Facebook, Instagram)
+        const href = (btnEl.getAttribute('href') || '').toLowerCase();
+        const className = (btnEl.className || '').toString().toLowerCase();
+
+        if (className.includes('twitter') || href.includes('twitter.com') || href.includes('x.com')) return 'X';
+        if (className.includes('facebook') || href.includes('facebook.com')) return 'Facebook';
+        if (className.includes('insta') || href.includes('instagram.com')) return 'Instagram';
+        if (className.includes('playstore') || className.includes('googleplay') || href.includes('play.google.com')) return 'Google Play';
+        if (className.includes('apple') || href.includes('apple.com')) return 'App Store';
+        if (className.includes('youtube') || href.includes('youtube.com')) return 'YouTube';
+        if (className.includes('linkedin') || href.includes('linkedin.com')) return 'LinkedIn';
+
+        return '';
+    }
+
     // Helper function to resolve accessible text, role, and label for any hovered or interacted element
     function resolveAccessibleElement(target) {
         // Exclude elements within the accessibility widget itself
@@ -457,7 +574,12 @@ function onReady(fn) {
             return null;
         }
 
-        // 1. Handle Checkboxes and Switches
+        // Exclude modal backdrops, dialog wrappers, and whole page containers
+        if (target.matches('.MuiDialog-container, .MuiBackdrop-root, .MuiModal-root, .MuiDialog-root, .modal-backdrop, .tc-container, [role="dialog"], [role="document"], form, section, main, article, nav, header, footer')) {
+            return null;
+        }
+
+        // 1. Handle Checkboxes and Switches - Announces label and Checked/Unchecked state
         const checkboxEl = target.matches('input[type="checkbox"]')
             ? target
             : target.closest('label, .MuiFormControlLabel-root, .MuiCheckbox-root, .MuiSwitch-root')?.querySelector('input[type="checkbox"]');
@@ -477,30 +599,30 @@ function onReady(fn) {
             const logicalNode = parentLabel || checkboxEl.closest('.MuiCheckbox-root, .MuiSwitch-root') || checkboxEl;
             return {
                 node: logicalNode,
-                text: cleanLabel ? `${cleanLabel}, ${stateText}` : stateText
+                text: cleanLabel ? `${cleanLabel} ${stateText}` : stateText
             };
         }
 
-        // 2. Handle Radio Buttons
-        const radioEl = target.matches('input[type="radio"]')
+        // 2. Handle Radio Buttons (Native inputs, MuiButton radios, and custom SVG radios) - Read ONLY the label
+        const radioInput = target.matches('input[type="radio"]')
             ? target
-            : target.closest('label, .MuiFormControlLabel-root, .MuiRadio-root')?.querySelector('input[type="radio"]');
-        if (radioEl) {
-            const parentLabel = radioEl.closest('.MuiFormControlLabel-root, label');
-            const labelText = parentLabel?.querySelector('.MuiFormControlLabel-label')?.textContent
-                || parentLabel?.textContent
-                || radioEl.getAttribute('aria-label')
-                || '';
-            const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
-            const stateText = radioEl.checked ? 'Selected' : 'Not selected';
-            const logicalNode = parentLabel || radioEl.closest('.MuiRadio-root') || radioEl;
-            return {
-                node: logicalNode,
-                text: cleanLabel ? `${cleanLabel}, ${stateText}` : stateText
-            };
+            : target.closest('label, .MuiFormControlLabel-root, .MuiRadio-root, [role="radio"], .mui-button')?.querySelector('input[type="radio"]');
+        const customRadio = !radioInput && target.closest('.select-bank-account__radio-checked, .select-bank-account__radio-unchecked, [class*="radio-checked"], [class*="radio-unchecked"], [data-testid*="RadioButton"]');
+
+        if (radioInput || customRadio) {
+            const activeEl = radioInput || customRadio;
+            const cleanLabel = extractRadioLabel(radioInput, activeEl);
+            if (cleanLabel) {
+                const logicalNode = activeEl.closest('.MuiFormControlLabel-root, label, .mui-button, .select-bank-account__card, .MuiRadio-root') || activeEl;
+                // Speak ONLY the label text without 'Selected' or 'Not selected'
+                return {
+                    node: logicalNode,
+                    text: cleanLabel
+                };
+            }
         }
 
-        // 3. Handle Select / Dropdown Elements (Native and Material-UI)
+        // 3. Handle Select / Dropdown Elements (Native and Material-UI) - Read label and selected text
         const selectEl = target.closest('.MuiSelect-select, select, [role="combobox"], .mui-dropdown');
         if (selectEl) {
             const formControl = selectEl.closest('.MuiFormControl-root, .mui-dropdown');
@@ -512,15 +634,17 @@ function onReady(fn) {
             const selectedValue = (selectEl.textContent || selectEl.value || '').replace(/\s+/g, ' ').trim();
             let speech = cleanLabel;
             if (selectedValue && selectedValue !== cleanLabel) {
-                speech = cleanLabel ? `${cleanLabel}, ${selectedValue}` : selectedValue;
+                speech = cleanLabel ? `${cleanLabel} ${selectedValue}` : selectedValue;
             }
-            return {
-                node: formControl || selectEl,
-                text: speech || 'Dropdown'
-            };
+            if (speech) {
+                return {
+                    node: formControl || selectEl,
+                    text: speech
+                };
+            }
         }
 
-        // 4. Handle Text Inputs, Textareas, and Date Pickers
+        // 4. Handle Text Inputs, Textareas, and Date Pickers - Read exact UI label
         const inputEl = target.matches('input, textarea')
             ? target
             : target.closest('.MuiInputBase-root')?.querySelector('input, textarea');
@@ -533,26 +657,18 @@ function onReady(fn) {
                 || inputEl.name
                 || '';
             const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
-            const isPassword = inputEl.type === 'password';
-            let speech = cleanLabel;
-            if (!speech) {
-                speech = isPassword ? 'Password' : 'Input field';
+            if (cleanLabel) {
+                return {
+                    node: formControl || inputEl,
+                    text: cleanLabel
+                };
             }
-            return {
-                node: formControl || inputEl,
-                text: speech
-            };
         }
 
-        // 5. Handle Buttons and Links
+        // 5. Handle Buttons and Links - Read exact visible button text or intelligent icon name
         const btnEl = target.closest('button, [role="button"], a');
         if (btnEl) {
-            const btnText = btnEl.getAttribute('aria-label')
-                || btnEl.innerText
-                || btnEl.getAttribute('title')
-                || btnEl.textContent
-                || '';
-            const cleanText = btnText.replace(/\s+/g, ' ').trim();
+            const cleanText = resolveLinkOrButtonText(btnEl);
             if (cleanText) {
                 return {
                     node: btnEl,
@@ -561,7 +677,29 @@ function onReady(fn) {
             }
         }
 
-        // 6. Handle Images
+        // 6. Handle Selectable Cards (e.g. Language Selection Cards, Goal Cards)
+        const muiCardEl = target.closest('.mui-card, .rewards-mui-card');
+        if (muiCardEl) {
+            const langDisplay = muiCardEl.querySelector('.mui-card__language-display')?.textContent?.trim();
+            const langName = muiCardEl.querySelector('.mui-card__language-name')?.textContent?.trim();
+            const goalName = muiCardEl.querySelector('.mui-card__goal-name')?.textContent?.trim();
+            let cardText = '';
+            if (langDisplay && langName && langDisplay !== langName) {
+                cardText = `${langDisplay} ${langName}`;
+            } else if (langDisplay || langName) {
+                cardText = langDisplay || langName;
+            } else if (goalName) {
+                cardText = goalName;
+            }
+            if (cardText) {
+                return {
+                    node: muiCardEl,
+                    text: cardText
+                };
+            }
+        }
+
+        // 7. Handle Images
         if (target.tagName === 'IMG') {
             const altText = target.getAttribute('alt') || target.getAttribute('aria-label') || target.getAttribute('title');
             if (altText) {
@@ -572,18 +710,34 @@ function onReady(fn) {
             }
         }
 
-        // 7. Handle Standard UI Text Elements (Paragraphs, Headings, Spans, Labels, List Items, Table Cells)
-        if (['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'LABEL', 'TH', 'TD', 'LI', 'B', 'STRONG', 'EM', 'DIV'].includes(target.tagName)) {
-            // Avoid triggering on large layout wrappers by constraining child count and text length
-            if (target.childElementCount <= 2) {
-                const text = (target.innerText || target.textContent || '').replace(/\s+/g, ' ').trim();
-                // Avoid reading blank text or excessively long document bodies
-                if (text && text.length > 0 && text.length < 300) {
-                    return {
-                        node: target,
-                        text: text
-                    };
-                }
+        // 8. Handle Standard UI Leaf Text Elements (Paragraphs, Headings, Spans, Labels, List Items, Table Cells, and pure leaf DIVs)
+        const CONTAINER_TAGS = ['FORM', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'NAV', 'MAIN', 'ASIDE', 'DIALOG', 'BODY', 'HTML', 'UL', 'OL', 'TABLE', 'TBODY', 'THEAD', 'TR'];
+        if (CONTAINER_TAGS.includes(target.tagName)) {
+            return null;
+        }
+
+        // If target is a DIV, strictly only allow if it is a pure leaf element with no child elements
+        if (target.tagName === 'DIV' && target.childElementCount > 0) {
+            return null;
+        }
+
+        const TEXT_TAGS = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'LABEL', 'TH', 'TD', 'LI', 'B', 'STRONG', 'EM', 'SMALL', 'DIV'];
+        if (TEXT_TAGS.includes(target.tagName)) {
+            // Must NOT contain interactive elements inside (buttons, inputs, etc.)
+            if (target.querySelector('button, input, select, textarea, [role="button"], [role="dialog"], a')) {
+                return null;
+            }
+            // Must NOT have multiple nested child elements (ensures only specific leaf UI text is read)
+            if (target.childElementCount > 1) {
+                return null;
+            }
+            const text = (target.innerText || target.textContent || '').replace(/\s+/g, ' ').trim();
+            // Avoid reading empty text or excessively long multi-paragraph documents
+            if (text && text.length > 0 && text.length < 200) {
+                return {
+                    node: target,
+                    text: text
+                };
             }
         }
 
@@ -597,7 +751,26 @@ function onReady(fn) {
         let element = event.target;
         if (!element || element.closest('.uwaw')) return;
 
-        // If clicking a checkbox, immediately announce its updated toggle state
+        // If clicking a radio button, announce ONLY its label name without any status
+        const radioInput = element.matches('input[type="radio"]')
+            ? element
+            : element.closest('label, .MuiFormControlLabel-root, .MuiRadio-root, [role="radio"], .mui-button')?.querySelector('input[type="radio"]');
+        const customRadio = !radioInput && element.closest('.select-bank-account__radio-checked, .select-bank-account__radio-unchecked, [class*="radio-checked"], [class*="radio-unchecked"], [data-testid*="RadioButton"]');
+
+        if (radioInput || customRadio) {
+            const activeEl = radioInput || customRadio;
+            const cleanLabel = extractRadioLabel(radioInput, activeEl);
+            if (cleanLabel) {
+                const logicalNode = activeEl.closest('.MuiFormControlLabel-root, label, .mui-button, .select-bank-account__card, .MuiRadio-root') || activeEl;
+                // Lock lastSpokenNode so mouseover does not immediately repeat after clicking
+                lastSpokenNode = logicalNode;
+                lastSpokenText = cleanLabel;
+                speakText(cleanLabel);
+                return;
+            }
+        }
+
+        // If clicking a checkbox, immediately announce its updated toggle state (Checked / Unchecked)
         const checkboxEl = element.matches('input[type="checkbox"]')
             ? element
             : element.closest('label, .MuiFormControlLabel-root, .MuiCheckbox-root, .MuiSwitch-root')?.querySelector('input[type="checkbox"]');
@@ -613,7 +786,7 @@ function onReady(fn) {
                 const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
                 const isChecked = checkboxEl.checked;
                 const stateText = isSwitch ? (isChecked ? 'On' : 'Off') : (isChecked ? 'Checked' : 'Unchecked');
-                const speech = cleanLabel ? `${cleanLabel}, ${stateText}` : stateText;
+                const speech = cleanLabel ? `${cleanLabel} ${stateText}` : stateText;
 
                 // Lock lastSpokenNode so mouseover does not immediately repeat after clicking
                 lastSpokenNode = parentLabel || checkboxEl.closest('.MuiCheckbox-root, .MuiSwitch-root') || checkboxEl;
@@ -623,16 +796,37 @@ function onReady(fn) {
             return;
         }
 
-        // For non-checkbox clickable elements, read text on click if not already read
-        let clickedText = "";
-        if (element.tagName === "IMG") {
-            clickedText = element.getAttribute("alt") || element.getAttribute("aria-label") || element.getAttribute("title") || "Clickable image";
-        } else {
-            clickedText = (element.innerText || element.textContent || "").trim();
+        // If clicking a selectable card (e.g. Language Card), announce its name
+        const clickedCard = element.closest('.mui-card, .rewards-mui-card');
+        if (clickedCard) {
+            const langDisplay = clickedCard.querySelector('.mui-card__language-display')?.textContent?.trim();
+            const langName = clickedCard.querySelector('.mui-card__language-name')?.textContent?.trim();
+            const goalName = clickedCard.querySelector('.mui-card__goal-name')?.textContent?.trim();
+            let cardText = '';
+            if (langDisplay && langName && langDisplay !== langName) {
+                cardText = `${langDisplay} ${langName}`;
+            } else if (langDisplay || langName) {
+                cardText = langDisplay || langName;
+            } else if (goalName) {
+                cardText = goalName;
+            }
+            if (cardText && cardText !== lastSpokenText) {
+                lastSpokenNode = clickedCard;
+                lastSpokenText = cardText;
+                speakText(cardText);
+            }
+            return;
         }
-        if (clickedText && screenReader && clickedText !== lastSpokenText) {
-            lastSpokenText = clickedText;
-            speakText(clickedText);
+
+        // If clicking a button or link, announce its exact button label (never whole containers)
+        const btnEl = element.closest('button, [role="button"], a');
+        if (btnEl) {
+            const cleanText = resolveLinkOrButtonText(btnEl);
+            if (cleanText && cleanText !== lastSpokenText) {
+                lastSpokenNode = btnEl;
+                lastSpokenText = cleanText;
+                speakText(cleanText);
+            }
         }
     });
 
@@ -1740,7 +1934,8 @@ onReady(function () {
 })();
 
 
-==========================CSS=======================
+===========================================================================================================
+
 @font-face {
   font-family: 'Open-Dyslexic';
   font-style: normal;
@@ -2614,27 +2809,25 @@ body[data-gr-ext-installed] {
   }
 }
 
-/* Accessibility: Highlight ONLY external application links (e.g., Google Play Store, Apple App Store, Social Media, external URLs) */
+/* Accessibility: Highlight ONLY actual external links with valid destination URLs */
 .ux4g-accessibility-highlight-links a[href^="http://"]:not(#uw-main a),
 .ux4g-accessibility-highlight-links a[href^="https://"]:not(#uw-main a),
 .ux4g-accessibility-highlight-links a[href^="mailto:"]:not(#uw-main a),
-.ux4g-accessibility-highlight-links a[target="_blank"]:not(#uw-main a),
 .ux4g-accessibility-highlight-links .playstore-icon,
 .ux4g-accessibility-highlight-links .googlePlayStoreText,
 .ux4g-accessibility-highlight-links .applePlayStoreText,
 .ux4g-accessibility-highlight-links .socialMediaIcon,
 .ux4g-accessibility-highlight-links .instaIcon {
-  /* Accessibility: Apply high-contrast yellow outline and olive background for external redirects */
+  /* Accessibility: Apply high-contrast yellow outline and olive background for actual external redirects */
   background: #444701 !important;
   color: yellow !important;
   outline: 2px solid yellow !important;
 }
 
-/* Accessibility: Ensure typography and SVG icons inside external application links turn yellow */
+/* Accessibility: Ensure typography and SVG icons inside actual external application links turn yellow */
 .ux4g-accessibility-highlight-links a[href^="http://"]:not(#uw-main a) *,
 .ux4g-accessibility-highlight-links a[href^="https://"]:not(#uw-main a) *,
 .ux4g-accessibility-highlight-links a[href^="mailto:"]:not(#uw-main a) *,
-.ux4g-accessibility-highlight-links a[target="_blank"]:not(#uw-main a) *,
 .ux4g-accessibility-highlight-links .playstore-icon *,
 .ux4g-accessibility-highlight-links .googlePlayStoreText *,
 .ux4g-accessibility-highlight-links .applePlayStoreText *,
@@ -2643,6 +2836,36 @@ body[data-gr-ext-installed] {
   /* Accessibility: Force inner text and SVGs to high-contrast yellow */
   color: yellow !important;
   fill: yellow !important;
+}
+
+/* Accessibility: Text that only has an underline and is NOT an actual link must NOT be yellow */
+.ux4g-accessibility-highlight-links a:not([href]),
+.ux4g-accessibility-highlight-links a[href=""],
+.ux4g-accessibility-highlight-links a[href="#"],
+.ux4g-accessibility-highlight-links a[href^="javascript:"],
+.ux4g-accessibility-highlight-links .mui-link:not([href]),
+.ux4g-accessibility-highlight-links .mui-link[href=""],
+.ux4g-accessibility-highlight-links .mui-link[href="#"],
+.ux4g-accessibility-highlight-links u,
+.ux4g-accessibility-highlight-links [style*="text-decoration: underline"],
+.ux4g-accessibility-highlight-links [style*="text-decoration-line: underline"] {
+  background: transparent !important;
+  color: inherit !important;
+  outline: none !important;
+}
+
+.ux4g-accessibility-highlight-links a:not([href]) *,
+.ux4g-accessibility-highlight-links a[href=""] *,
+.ux4g-accessibility-highlight-links a[href="#"] *,
+.ux4g-accessibility-highlight-links a[href^="javascript:"] *,
+.ux4g-accessibility-highlight-links .mui-link:not([href]) *,
+.ux4g-accessibility-highlight-links .mui-link[href=""] *,
+.ux4g-accessibility-highlight-links .mui-link[href="#"] *,
+.ux4g-accessibility-highlight-links u *,
+.ux4g-accessibility-highlight-links [style*="text-decoration: underline"] *,
+.ux4g-accessibility-highlight-links [style*="text-decoration-line: underline"] * {
+  color: inherit !important;
+  fill: inherit !important;
 }
 
 /* Accessibility: Keep RightNav link wrappers transparent so outline is only on the card */
@@ -3062,5 +3285,26 @@ body.accessibility-loading {
 
   .h-scroll {
     height: calc(100vh - 170px) !important;
+  }
+}
+
+/* Scoped Accessibility layout fix: Prevent Send Money & Transactions buttons overlap on Dashboard */
+.customer-dashboard .customer-container .action-buttons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  flex-wrap: wrap !important;
+
+  .addmoney-btn {
+    margin-right: 0 !important;
+    width: auto !important;
+    min-width: 168px !important;
+    white-space: nowrap !important;
+  }
+
+  .mui-button--small {
+    width: auto !important;
+    min-width: 160px !important;
+    white-space: nowrap !important;
   }
 }
