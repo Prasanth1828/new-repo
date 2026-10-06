@@ -86,7 +86,6 @@ function onReady(fn) {
                             <span class="step uwaw-features__step"></span>
                             <span class="step uwaw-features__step"></span>
                             <span class="step uwaw-features__step"></span>
-                            <span class="step uwaw-features__step"></span>
                         </div>
                         <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-lh"  aria-live="polite" role="status"></span>
                     </button>
@@ -249,9 +248,6 @@ function onReady(fn) {
 </div>`;
     function injectWidget() { if (!document.getElementById('uw-main') && document.body) { document.body.insertAdjacentHTML('beforeend', widgetHTML); } } if (document.body) { injectWidget(); } else { onReady(injectWidget); }
     onReady(loadSettings);
-    document.addEventListener("scroll", function () {
-        detectRouteChange()
-    })
     document.getElementById('uw-widget-custom-trigger').addEventListener('click', function () {
         document.getElementById('uw-main').style.right = '0'
     });
@@ -281,6 +277,7 @@ function onReady(fn) {
     let saturateCount = 0;
     let lastPath = window.location.pathname;
     let screenReader = !1;
+    let hasMovedMouse = false;
     const fontSizeSpans = document.querySelectorAll('#featureSteps span');
     const lineHeightSpans = document.querySelectorAll('#featureSteps-lh span');
     const textSpacingSpans = document.querySelectorAll('#featureSteps-ts span');
@@ -297,6 +294,7 @@ function onReady(fn) {
     let cursorPositionY = 0;
 
     document.addEventListener('mousemove', (e) => {
+        hasMovedMouse = true;
         cursorPositionY = e.clientY;
         updateHighlightBarPosition();
         readingMask.style.setProperty('--y', `${e.clientY}px`);
@@ -575,7 +573,8 @@ function onReady(fn) {
         }
 
         // Exclude modal backdrops, dialog wrappers, and whole page containers
-        if (target.matches('.MuiDialog-container, .MuiBackdrop-root, .MuiModal-root, .MuiDialog-root, .modal-backdrop, .tc-container, [role="dialog"], [role="document"], form, section, main, article, nav, header, footer')) {
+        if (target.matches('.MuiDialog-container, .MuiBackdrop-root, .MuiModal-root, .MuiDialog-root, .modal-backdrop, .tc-container, [role="dialog"], [role="document"], form, section, main, article, nav, header, footer')
+            || target.matches('.registration, .registration-wrapper, .col-1, .login-page, .login-wrapper, .MuiGrid-container, .MuiGrid-root, .MuiBox-root, .MuiContainer-root, .MuiPaper-root:not(.mui-card), #root, body, html')) {
             return null;
         }
 
@@ -716,8 +715,8 @@ function onReady(fn) {
             return null;
         }
 
-        // If target is a DIV, strictly only allow if it is a pure leaf element with no child elements
-        if (target.tagName === 'DIV' && target.childElementCount > 0) {
+        // If target has any child elements, it is a parent container, not a pure leaf element
+        if (target.childElementCount > 0) {
             return null;
         }
 
@@ -727,13 +726,9 @@ function onReady(fn) {
             if (target.querySelector('button, input, select, textarea, [role="button"], [role="dialog"], a')) {
                 return null;
             }
-            // Must NOT have multiple nested child elements (ensures only specific leaf UI text is read)
-            if (target.childElementCount > 1) {
-                return null;
-            }
             const text = (target.innerText || target.textContent || '').replace(/\s+/g, ' ').trim();
-            // Avoid reading empty text or excessively long multi-paragraph documents
-            if (text && text.length > 0 && text.length < 200) {
+            // Read concise UI labels, titles, or single sentences (never whole long pages/articles)
+            if (text && text.length > 0 && text.length <= 120) {
                 return {
                     node: target,
                     text: text
@@ -839,7 +834,7 @@ function onReady(fn) {
     });
 
     document.addEventListener("mouseover", (event) => {
-        if (!screenReader) return;
+        if (!screenReader || !hasMovedMouse) return;
 
         const target = event.target;
         if (!target || target.closest('.uwaw')) return;
@@ -860,7 +855,7 @@ function onReady(fn) {
         clearTimeout(ttsHoverTimer);
         // Small debounce prevents stuttering and audio clipping when rapidly sweeping mouse across page
         ttsHoverTimer = setTimeout(() => {
-            if (!screenReader) return;
+            if (!screenReader || !hasMovedMouse) return;
 
             // Commit the active logical entity and speech text
             lastSpokenNode = info.node;
@@ -871,10 +866,14 @@ function onReady(fn) {
     });
 
     document.addEventListener("mouseout", (event) => {
-        // Reset last spoken node when mouse completely exits its bounding tree into an unrelated target
+        // Reset last spoken node and cancel speech when mouse completely exits its bounding tree into an unrelated target
         if (lastSpokenNode && event.relatedTarget && !lastSpokenNode.contains(event.relatedTarget)) {
-            // Allows the element to be re-read if the user deliberately navigates back to it later
             lastSpokenNode = null;
+            lastSpokenText = '';
+            clearTimeout(ttsHoverTimer);
+            if (speechSynthesisInstance && speechSynthesisInstance.speaking) {
+                speechSynthesisInstance.cancel();
+            }
         }
     });
 
@@ -994,17 +993,15 @@ function onReady(fn) {
         }
     });
 
-    // Configured line height progression with gentle increments to prevent card and table ballooning
+    // Configured line height progression with gentle increments (3 levels)
     const LINE_HEIGHT_LEVELS = [
         // Level 0: Default state
         'normal',
         // Level 1: Gentle increment
-        1.25,
+        1.3,
         // Level 2: Moderate increment
-        1.4,
-        // Level 3: Elevated readable spacing
-        1.55,
-        // Level 4: Maximum comfortable spacing
+        1.5,
+        // Level 3: Maximum comfortable spacing
         1.7
     ];
 
@@ -1074,7 +1071,7 @@ function onReady(fn) {
         const button = document.getElementById('featureItem-lh');
 
         button.classList.add(prefix + 'feature-active');
-        lineHeightCount = (lineHeightCount + 1) % 5;
+        lineHeightCount = (lineHeightCount + 1) % 4;
 
         if (lineHeightCount !== 0) {
             updateLineHeight();
@@ -1146,20 +1143,50 @@ function onReady(fn) {
             // Retrieve the active letter and word spacing values for the current level
             const currentSpacing = SPACING_LEVELS[textSpacingCount] || SPACING_LEVELS[1];
             style.textContent = `
+                body.${prefix}text-spacing,
+                body.${prefix}text-spacing *:not(.uwaw):not(.uwaw *):not(.fas):not(.far):not(.fal):not(.ux4g-icon):not(.material-icons):not(input[maxlength="1"]):not(input[type="password"]):not(.MuiSelect-icon):not(.MuiSvgIcon-root),
                 .ux4g-text-spacing,
                 .MuiDialog-paper *:not(.uwaw *),
-                .mui-dialog *:not(.uwaw *) {
+                .mui-dialog *:not(.uwaw *),
+                .MuiSelect-select,
+                .MuiSelect-select *,
+                .mui-dropdown,
+                .mui-dropdown *,
+                .select-button-dropdown,
+                .select-button-dropdown *,
+                .MuiPopover-root,
+                .MuiPopover-root *,
+                .MuiMenu-root,
+                .MuiMenu-root *,
+                .MuiMenu-paper,
+                .MuiMenu-paper *,
+                .MuiMenuItem-root,
+                .MuiMenuItem-root *,
+                .acContainer,
+                .acContainer *,
+                .acName,
+                .acNo,
+                .acTag,
+                .acBalancelabel,
+                .acBalance,
+                .cardTypeAcTag,
+                .MuiInputLabel-root,
+                .MuiFormHelperText-root,
+                .MuiInputBase-input {
                     letter-spacing: ${currentSpacing.letter} !important;
                     word-spacing: ${currentSpacing.word} !important;
                 }
-                /* Prevent distorted alignment on font icons, OTP inputs, and password fields */
+                /* Prevent distorted alignment on font icons, OTP inputs, select arrow icons, and password fields */
                 .ux4g-text-spacing.fas,
                 .ux4g-text-spacing.far,
                 .ux4g-text-spacing.fal,
                 .ux4g-text-spacing.ux4g-icon,
                 .ux4g-text-spacing.material-icons,
                 input[maxlength="1"].ux4g-text-spacing,
-                input[type="password"].ux4g-text-spacing {
+                input[type="password"].ux4g-text-spacing,
+                .MuiSelect-icon,
+                .MuiSelect-icon *,
+                .MuiSvgIcon-root {
                     letter-spacing: normal !important;
                     word-spacing: normal !important;
                 }
@@ -1176,12 +1203,14 @@ function onReady(fn) {
         });
 
         if (textSpacingCount > 0) {
+            document.body.classList.add(prefix + 'text-spacing');
             createTextSpacingStyles();
 
             document.querySelectorAll('body *:not(.uwaw *):not(.uwaw)').forEach((el) => {
                 el.classList.add('ux4g-text-spacing');
             });
         } else {
+            document.body.classList.remove(prefix + 'text-spacing');
             const existingStyle = document.getElementById('ux4g-text-spacing-styles');
             if (existingStyle) {
                 existingStyle.remove();
@@ -1532,7 +1561,7 @@ function onReady(fn) {
         });
 
         adhdActive = false;
-        document.body.classList.remove(prefix + "dark-mode", prefix + "custom-cursor", prefix + "dyslexia-mode", prefix + "highlight-links", prefix + "hide-images", prefix + "animation-pause", prefix + 'saturate-low', prefix + 'saturate-high', prefix + 'saturate-desaturate', prefix + 'adhd-saturate');
+        document.body.classList.remove(prefix + "dark-mode", prefix + "custom-cursor", prefix + "dyslexia-mode", prefix + "highlight-links", prefix + "hide-images", prefix + "animation-pause", prefix + 'saturate-low', prefix + 'saturate-high', prefix + 'saturate-desaturate', prefix + 'adhd-saturate', prefix + 'text-spacing');
         document.querySelectorAll('video[data-was-playing="true"]:not(.uwaw video):not(.uwaw)').forEach(video => {
             video.play();
             video.removeAttribute('data-was-playing');
@@ -1548,8 +1577,48 @@ function onReady(fn) {
         textSpacingCount = 0;
         saturateCount = 0;
         screenReader = !1;
+
+        // Reset all widget UI feature buttons (remove purple active border)
+        document.querySelectorAll('.reset-feature, [id^="featureItem"]').forEach(item => {
+            item.classList.remove(prefix + 'feature-active');
+        });
+
+        // Hide all tick icons (checkmarks) across the widget
+        document.querySelectorAll('.reset-tick, [id^="tickIcon"]').forEach(tick => {
+            tick.style.display = 'none';
+        });
+
+        // Reset all feature step indicator bars
+        document.querySelectorAll('.reset-steps, [id^="featureSteps"]').forEach(steps => {
+            steps.classList.remove(prefix + 'featureSteps-visible');
+            steps.querySelectorAll('.step, .uwaw-features__step').forEach(step => {
+                step.classList.remove(prefix + 'active');
+            });
+        });
+
+        // Reset Saturation texts and icons back to default (0 - "Saturation")
+        for (let i = 0; i <= 3; i++) {
+            const iconEl = document.getElementById(`saturate-text-${i}`);
+            const textEl = document.getElementById(`saturate-detail-text-${i}`);
+            if (iconEl) iconEl.style.display = i === 0 ? 'inline-block' : 'none';
+            if (textEl) textEl.style.display = i === 0 ? 'inline-block' : 'none';
+        }
+
+        // Disable smaller text button since font size is back to 0
+        const smallerTextBtn = document.getElementById('btn-s17');
+        if (smallerTextBtn) smallerTextBtn.disabled = true;
+
+        if (typeof fontSizeSpans !== 'undefined' && fontSizeSpans) {
+            fontSizeSpans.forEach(span => span.classList.remove(prefix + 'active'));
+        }
+        if (typeof lineHeightSpans !== 'undefined' && lineHeightSpans) {
+            lineHeightSpans.forEach(span => span.classList.remove(prefix + 'active'));
+        }
+        if (typeof textSpacingSpans !== 'undefined' && textSpacingSpans) {
+            textSpacingSpans.forEach(span => span.classList.remove(prefix + 'active'));
+        }
+
         saveSettings();
-        loadSettings();
         const checkboxes = document.querySelectorAll('.uwaw input[type="checkbox"]');
         checkboxes.forEach(checkbox => checkbox.checked = !1);
         document.querySelectorAll('.font-size-visible, .line-height-visible, .text-spacing-visible').forEach(el => el.classList.remove(prefix + 'span-visible'))
@@ -1573,9 +1642,9 @@ function onReady(fn) {
     function saveSettings() {
         const settings = {
             screenReader: screenReader,
-            fontSizeCount: fontSizeCount - 1,
-            lineHeightCount: lineHeightCount - 1,
-            textSpacingCount: textSpacingCount - 1,
+            fontSizeCount: Math.max(0, fontSizeCount > 0 ? fontSizeCount - 1 : 0),
+            lineHeightCount: Math.max(0, lineHeightCount > 0 ? lineHeightCount - 1 : 0),
+            textSpacingCount: Math.max(0, textSpacingCount > 0 ? textSpacingCount - 1 : 0),
             saturateCount: saturateCount,
             highlightLinks: document.body.classList.contains(prefix + 'highlight-links'),
             dyslexiaMode: document.body.classList.contains(prefix + 'dyslexia-mode'),
@@ -1649,10 +1718,6 @@ function onReady(fn) {
         if (animationToggle) {
             animationToggle.style.display = settings.pauseAnimation ? 'inline-flex' : 'none'
         }
-
-        adjustFontSize('+1');
-        adjustLineHeight();
-        adjustTextSpacing()
     }
 
     function loadSettings() {
@@ -1663,7 +1728,7 @@ function onReady(fn) {
         if (settings) {
             settings = JSON.parse(settings);
             fontSizeCount = settings.fontSizeCount || 0;
-            lineHeightCount = settings.lineHeightCount || 0;
+            lineHeightCount = Math.min(settings.lineHeightCount || 0, 3);
             textSpacingCount = settings.textSpacingCount || 0;
             saturateCount = settings.saturateCount || 0;
             if (settings.screenReader) {
@@ -1837,34 +1902,55 @@ function onReady(fn) {
         }
     });
 
-    function detectRouteChange() {
-        setInterval(() => {
-            let currentPath = window.location.pathname;
-            if (currentPath !== lastPath) {
+    function handleRouteChange() {
+        let currentPath = window.location.pathname;
+        if (currentPath !== lastPath) {
+            lastPath = currentPath;
+            hasMovedMouse = false;
+            lastSpokenNode = null;
+            lastSpokenText = '';
+            clearTimeout(ttsHoverTimer);
+            if (speechSynthesisInstance) {
                 speechSynthesisInstance.cancel();
-                lastPath = currentPath;
+            }
 
-                const settingsStr = getCookie(SETTINGS_KEY);
-                if (settingsStr) {
-                    const settings = JSON.parse(settingsStr);
+            const settingsStr = getCookie(SETTINGS_KEY);
+            if (settingsStr) {
+                const settings = JSON.parse(settingsStr);
 
-                    if (settings.adhdFriendly && !adhdActive) {
-                        toggleADHDFriendlyMode()
-                    }
+                if (settings.adhdFriendly && !adhdActive) {
+                    toggleADHDFriendlyMode();
+                }
 
-                    if (settings.lineHeightCount && settings.lineHeightCount > 0) {
-                        lineHeightCount = settings.lineHeightCount + 1;
-                        updateLineHeight();
-                    }
+                if (settings.lineHeightCount && settings.lineHeightCount > 0) {
+                    lineHeightCount = Math.min(settings.lineHeightCount + 1, 3);
+                    updateLineHeight();
+                }
 
-                    if (settings.textSpacingCount && settings.textSpacingCount > 0) {
-                        textSpacingCount = settings.textSpacingCount + 1;
-                        updateLetterSpacing();
-                    }
+                if (settings.textSpacingCount && settings.textSpacingCount > 0) {
+                    textSpacingCount = settings.textSpacingCount + 1;
+                    updateLetterSpacing();
                 }
             }
-        }, 1000);
+        }
     }
+
+    const _origPushState = history.pushState;
+    if (_origPushState) {
+        history.pushState = function () {
+            _origPushState.apply(this, arguments);
+            handleRouteChange();
+        };
+    }
+    const _origReplaceState = history.replaceState;
+    if (_origReplaceState) {
+        history.replaceState = function () {
+            _origReplaceState.apply(this, arguments);
+            handleRouteChange();
+        };
+    }
+    window.addEventListener("popstate", handleRouteChange);
+    setInterval(handleRouteChange, 250);
 })()
 
 window.addEventListener("load", function () {
@@ -1933,9 +2019,7 @@ onReady(function () {
     }
 })();
 
-
-===========================================================================================================
-
+======================================================================================================
 @font-face {
   font-family: 'Open-Dyslexic';
   font-style: normal;
@@ -2238,6 +2322,8 @@ button.uwaw-close:focus {
   position: absolute;
   width: 100%;
   bottom: 10px;
+  z-index: 10 !important;
+  pointer-events: auto !important;
 }
 
 .h-scroll {
@@ -2246,6 +2332,7 @@ button.uwaw-close:focus {
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 10px;
+  padding-bottom: 70px !important;
   margin-right: -16px;
   transition: all 0.3s;
 }
@@ -3198,6 +3285,34 @@ body.ux4g-accessibility-adhd-saturate *:not(.reading-mask-horizontal, .uwaw, .uw
 .uw-widget-custom-trigger.ux4g-text-spacing :not(.uw-widget-custom-trigge) {
   letter-spacing: 0em !important;
   word-spacing: 0em !important;
+}
+
+/* Ensure text spacing applies seamlessly across all Deposits and application dropdowns */
+body.ux4g-accessibility-text-spacing {
+  .MuiSelect-select,
+  .MuiSelect-select *,
+  .mui-dropdown,
+  .mui-dropdown *,
+  .select-button-dropdown,
+  .select-button-dropdown *,
+  .MuiPopover-root *,
+  .MuiMenu-root *,
+  .MuiMenu-paper *,
+  .MuiMenuItem-root,
+  .MuiMenuItem-root *,
+  .acContainer,
+  .acContainer *,
+  .acName,
+  .acNo,
+  .acTag,
+  .acBalancelabel,
+  .acBalance,
+  .cardTypeAcTag,
+  .MuiInputLabel-root,
+  .MuiFormHelperText-root {
+    letter-spacing: inherit !important;
+    word-spacing: inherit !important;
+  }
 }
 
 /* page loading showing code issue fixed */
