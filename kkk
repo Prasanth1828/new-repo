@@ -1,0 +1,2020 @@
+/* eslint-disable */
+function onReady(fn) {
+    if (typeof document === "undefined") return;
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", fn);
+    } else {
+        setTimeout(fn, 0);
+    }
+}
+
+(function () {
+    const SETTINGS_KEY = "accessibilitySettings";
+    const prefix = "ux4g-accessibility-";
+
+    function getCookieDomain() {
+        const hostname = location.hostname;
+
+        if (hostname === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
+            return '';
+        }
+
+        const parts = hostname.split('.');
+
+        if (parts.length > 1) {
+            return '.' + parts.slice(1).join('.'); // ".example.co.in"
+        }
+    }
+
+    // Accessibility: Self-hosted widget template without external CDN stylesheet injection
+    const widgetHTML = `
+<div class="uwaw uw-light-theme gradient-head uwaw-initial paid_widget" id="uw-main" role="dialog" aria-modal="true" aria-labelledby="uw-heading">
+    <div class="relative second-panel">
+        <h2 id="uw-heading">Accessibility options <span class="inner-short-key">Ctrl+F2</span></h2>
+        <button type="button" aria-label="Close main navigation panel" class="uwaw-close" tabindex="1"></button>
+    </div>
+    <div class="uwaw-body">
+        <div class="h-scroll">
+            <div class="uwaw-features">
+            <div class="uwaw-features__item reset-feature" id="featureItem">
+                    <button aria-label="Bigger Text" tabindex="2" id="btn-s9" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-bigger-text" role="img" aria-label="Bigger text icon" aria-hidden="true" aria-pressed="false"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Bigger Text</span>
+                        <div class="uwaw-features__item__steps reset-steps" id="featureSteps">
+                            <span class="step uwaw-features__step"></span>
+                            <span class="step uwaw-features__step"></span>
+                            <span class="step uwaw-features__step"></span>
+                            <span class="step uwaw-features__step"></span>
+                        </div>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+                <div class="uwaw-features__item reset-feature" id="featureItem-st">
+                    <button aria-label="Smaller Text" tabindex="3" id="btn-s17" class="uwaw-features__item__i" disabled>
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-smaller-text" role="img" aria-label="Smaller text icon" aria-hidden="true" aria-pressed="false"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Smaller Text</span>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIconSt"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+
+                 <div class="uwaw-features__item reset-feature" id="featureItem-ts">
+                    <button aria-label="Text Spacing" tabindex="4" id="btn-s13" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-text-spacing"  role="img" aria-label="Text spacing icon" aria-hidden="true" aria-pressed="false"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Text Spacing</span>
+                        <div class="uwaw-features__item__steps reset-steps" id="featureSteps-ts">
+                            <span class="step uwaw-features__step"></span>
+                            <span class="step uwaw-features__step"></span>
+                            <span class="step uwaw-features__step"></span>
+                        </div>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-ts"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+
+                 <div class="uwaw-features__item reset-feature" id="featureItem-lh">
+                    <button aria-label="Line Height" tabindex="5" id="btn-s12" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-line-hight" role="img" aria-label="Line height icon" aria-hidden="true" aria-pressed="false"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Line Height</span>
+                        <div class="uwaw-features__item__steps reset-steps" id="featureSteps-lh">
+                            <span class="step uwaw-features__step"></span>
+                            <span class="step uwaw-features__step"></span>
+                            <span class="step uwaw-features__step"></span>
+                        </div>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-lh"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+
+                 <div class="uwaw-features__item reset-feature" id="featureItem-df">
+                    <button aria-label="Dyslexia Friendly Font" aria-pressed="false" tabindex="6" id="btn-df" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-dyslexia-font" role="img" aria-label="Dyslexia friendly font icon" aria-hidden="true"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Dyslexia Friendly</span>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-df"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+                <div class="uwaw-features__item reset-feature" id="featureItem-adhd">                    
+                    <button aria-label="ADHD Mode" aria-pressed="false" tabindex="7" id="btn-adhd" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-adhd-friendly" role="img" aria-label="Icon ADHD Friendly icon" aria-hidden="true"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">ADHD Mode</span>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-adhd" aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+                <div class="uwaw-features__item reset-feature" id="featureItem-saturate">
+                    <button aria-label="Saturate Colors" aria-pressed="false" tabindex="8" id="btn-saturate" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-saturate" role="img" aria-label="Saturate icon" aria-hidden="true" id="saturate-text-0"></span>
+                            <span class="ux4g-icon icon-lowsaturate" role="img" aria-label="Low Saturate icon" aria-hidden="true" id="saturate-text-1" style="display: none;"></span>
+                            <span class="ux4g-icon icon-highsaturate" role="img" aria-label="High Saturate colors icon" aria-hidden="true" id="saturate-text-2" style="display: none;"></span>
+                            <span class="ux4g-icon icon-desaturate" role="img" aria-label="Desaturate icon" aria-hidden="true" id="saturate-text-3" style="display: none;"></span>
+
+                        </span>
+                        <div id="feature-container">
+                            <span class="uwaw-features__item__name saturate-text" id="saturate-detail-text-0">Saturation</span>
+                            <span class="uwaw-features__item__name saturate-text" id="saturate-detail-text-1" style="display: none;">Low Saturation</span>
+                            <span class="uwaw-features__item__name saturate-text" id="saturate-detail-text-2" style="display: none;">High Saturation</span>
+                            <span class="uwaw-features__item__name saturate-text" id="saturate-detail-text-3" style="display: none;">Desaturate</span>
+                        </div>
+                        <div class="uwaw-features__item__steps reset-steps" id="featureStepsSaturate">
+                            <span class="step uwaw-features__step"></span>
+                            <span class="step uwaw-features__step"></span>
+                            <span class="step uwaw-features__step"></span>
+                        </div>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-saturate"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+<div class="uwaw-features__item reset-feature" id="featureItem-ht-dark">
+                    <button aria-label="Light Dark Theme" aria-pressed="false" tabindex="9" id="dark-btn" class="uwaw-features__item__i">
+                        <div class="uwaw-features__item__name">
+                            <div class="light_dark_icon">
+                                <input type="checkbox" class="light_mode uwaw-featugres__item__i" id="checkbox"  aria-label="Toggle light and dark mode" role="switch"/>
+                                <label for="checkbox" class="checkbox-label">
+                                    <i class="fas fa-moon-stars">
+                                        <span class="ux4g-icon icon-moon" role="img" aria-label="Dark mode icon" aria-hidden="true"></span>
+                                    </i>
+                                    <i class="fas fa-sun">
+                                        <span class="ux4g-icon icon-sun" role="img" aria-label="Light mode icon" aria-hidden="true"></span>
+                                    </i>
+                                    <span class="ball"></span>
+                                </label>
+                            </div>
+                            <span class="uwaw-features__item__name">Light-Dark</span>
+                        </div>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-ht-dark"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+                <div class="uwaw-features__item reset-feature" id="featureItem-ic">
+                    <button aria-label="Invert Colors" aria-pressed="false" tabindex="10" id="btn-invert" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-invert" role="img" aria-label="Invert colors icon" aria-hidden="true"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Invert Colors</span>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-ic"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+ <div class="uwaw-features__item reset-feature" id="featureItem-ht">
+                    <button aria-pressed="false" aria-label="Highlight Links" tabindex="11" id="btn-s10" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-highlight-links" role="img" aria-label="Highlight links icon" aria-hidden="true"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Highlight Links</span>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-ht"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+                
+                <div class="uwaw-features__item reset-feature" id="featureItem_sp">
+                    <button aria-label="Text To Speech" tabindex="12" id="speak" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-speaker" role="img" aria-label="Text to speech icon" aria-hidden="true" aria-pressed="false"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Text To Speech</span>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon_sp"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+               
+                <div class="uwaw-features__item reset-feature" id="featureItem-Cursor">
+                    <button aria-label="Cursor Bigger" aria-pressed="false" tabindex="13" id="btn-cursor" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-cursor" role="img" aria-label="Cursor bigger icon" aria-hidden="true"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Cursor</span>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-cursor"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+                
+                <div class="uwaw-features__item reset-feature" id="featureItem-animate">
+                    <button aria-label="Pause Animation" aria-pressed="false" tabindex="14" id="btn-animation" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-animation-pause" role="img" aria-label="Pause Animation icon" aria-hidden="true"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Pause Animation</span>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-animate"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+                 <div class="uwaw-features__item reset-feature" id="featureItem-hi">
+                    <button aria-label="Hide Images" aria-pressed="false" tabindex="15" id="btn-s11" class="uwaw-features__item__i">
+                        <span class="uwaw-features__item__icon">
+                            <span class="ux4g-icon icon-hide-images" role="img" aria-label="Hide images icon" aria-hidden="true"></span>
+                        </span>
+                        <span class="uwaw-features__item__name">Hide Images</span>
+                        <span class="tick-active uwaw-features__item__enabled reset-tick" id="tickIcon-hi"  aria-live="polite" role="status"></span>
+                    </button>
+                </div>
+
+
+               
+            </div>
+        </div>
+    </div>
+    <div class="reset-panel">
+        <div class="copyrights-accessibility">
+            <button aria-label="Reset All Settings" tabindex="16" class="btn-reset-all" id="reset-all">
+                <div class="reset-icon"></div>
+                <div class="reset-btn-text">Reset All Settings</div>
+            </button>
+            <a tabindex="-1" href="https://www.ux4g.gov.in" target="_blank" class="copyright-text" contenteditable="false" style="cursor: pointer;">
+                <span class="uwaw-features__item__name ux4g-copy ux4g-copyright">Created by</span>
+                <span class="ux4g-logo"></span>
+            </a>
+        </div>
+    </div>
+</div>
+<button tabindex="1"  aria-label="Accessibility Options" data-uw-trigger="true" aria-haspopup="dialog" aria-controls="uw-main" aria-expanded="false" id="uw-widget-custom-trigger" class="uw-widget-custom-trigger">
+    <label class="short-key">Ctrl+F2</label>    
+    <img alt="icon" loading="lazy"
+        src="data:image/svg+xml,%0A%3Csvg width='32' height='32' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg clip-path='url(%23clip0_1_1506)' fill='%23fff'%3E%3Cpath d='M16 7a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z'/%3E%3Cpath d='M27 7.05l-.028.008-.026.008a7.112 7.112 0 0 0-.188.055c-1.163.341-6.808 1.933-10.785 1.933-3.696 0-8.83-1.375-10.472-1.842A4.61 4.61 0 0 0 5 7.05c-1.188-.313-2 .893-2 1.996 0 1.092.98 1.612 1.972 1.985v.017l5.95 1.86c.609.232.771.47.85.677.259.662.053 1.972-.02 2.43l-.363 2.812L9.378 29.84l-.017.092-.014.08c-.145 1.009.596 1.988 2 1.988 1.225 0 1.766-.846 2-1.996.234-1.15 1.75-9.848 2.625-9.848s2.677 9.848 2.677 9.848c.235 1.15.775 1.996 2 1.996 1.408 0 2.15-.984 2-1.996a3.591 3.591 0 0 0-.047-.254l-2.04-10.92-.361-2.813c-.262-1.638-.052-2.18.02-2.306a.07.07 0 0 0 .005-.01c.067-.125.375-.405 1.092-.674l5.58-1.95c.034-.01.068-.02.101-.033 1-.375 2-.894 2-1.996 0-1.102-.811-2.31-1.999-1.998z'/%3E%3C/g%3E%3Cdefs%3E%3CclipPath id='clip0_1_1506'%3E%3Cpath fill='%23fff' d='M0 0h32v32H0z'/%3E%3C/clipPath%3E%3C/defs%3E%3C/svg%3E"
+    />
+    <span>Accessibility Options</span> 
+</button>
+
+
+<div id="accessibility-overlay">
+    <button  id="open-the-accessibility-menu" class="skip-link" >
+        <span class="icon-open-accessibile">
+            <img alt="icon" loading="lazy" src="data:image/svg+xml,%0A%3Csvg width='32' height='32' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cg clip-path='url(%23clip0_1_1506)' fill='%23fff'%3E%3Cpath d='M16 7a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z'/%3E%3Cpath d='M27 7.05l-.028.008-.026.008a7.112 7.112 0 0 0-.188.055c-1.163.341-6.808 1.933-10.785 1.933-3.696 0-8.83-1.375-10.472-1.842A4.61 4.61 0 0 0 5 7.05c-1.188-.313-2 .893-2 1.996 0 1.092.98 1.612 1.972 1.985v.017l5.95 1.86c.609.232.771.47.85.677.259.662.053 1.972-.02 2.43l-.363 2.812L9.378 29.84l-.017.092-.014.08c-.145 1.009.596 1.988 2 1.988 1.225 0 1.766-.846 2-1.996.234-1.15 1.75-9.848 2.625-9.848s2.677 9.848 2.677 9.848c.235 1.15.775 1.996 2 1.996 1.408 0 2.15-.984 2-1.996a3.591 3.591 0 0 0-.047-.254l-2.04-10.92-.361-2.813c-.262-1.638-.052-2.18.02-2.306a.07.07 0 0 0 .005-.01c.067-.125.375-.405 1.092-.674l5.58-1.95c.034-.01.068-.02.101-.033 1-.375 2-.894 2-1.996 0-1.102-.811-2.31-1.999-1.998z'/%3E%3C/g%3E%3Cdefs%3E%3CclipPath id='clip0_1_1506'%3E%3Cpath fill='%23fff' d='M0 0h32v32H0z'/%3E%3C/clipPath%3E%3C/defs%3E%3C/svg%3E">
+        </span>
+        <strong>Open the accessibility option</strong>
+        <span class="icon-enter"></span>
+    </button>
+</div>`;
+    function injectWidget() { if (!document.getElementById('uw-main') && document.body) { document.body.insertAdjacentHTML('beforeend', widgetHTML); } } if (document.body) { injectWidget(); } else { onReady(injectWidget); }
+    onReady(loadSettings);
+    document.getElementById('uw-widget-custom-trigger').addEventListener('click', function () {
+        document.getElementById('uw-main').style.right = '0'
+    });
+    document.getElementById('open-the-accessibility-menu').addEventListener('click', function () {
+        const menu = document.getElementById('uw-main');
+        const btn = document.getElementById('open-the-accessibility-menu');
+        if (menu) {
+            menu.style.right = '0';
+        }
+        if (btn) {
+            btn.style.display = 'none';
+        }
+    });
+
+    function closeMain() {
+        document.getElementById('uw-main').style.right = '-530px'
+    }
+    onReady(function () {
+        const closeButtons = document.querySelectorAll('.uwaw-close');
+        closeButtons.forEach(function (button) {
+            button.addEventListener('click', closeMain)
+        })
+    });
+    let fontSizeCount = 0;
+    let lineHeightCount = 0;
+    let textSpacingCount = 0;
+    let saturateCount = 0;
+    let lastPath = window.location.pathname;
+    let screenReader = !1;
+    let hasMovedMouse = false;
+    const fontSizeSpans = document.querySelectorAll('#featureSteps span');
+    const lineHeightSpans = document.querySelectorAll('#featureSteps-lh span');
+    const textSpacingSpans = document.querySelectorAll('#featureSteps-ts span');
+    const saturateSpans = document.querySelectorAll('#featureStepsSaturate span');
+    let speechSynthesisInstance = window.speechSynthesis;
+    let tabPressCount = 0;
+    let adhdActive = false;
+
+    const readingMask = document.createElement('div');
+    readingMask.className = 'reading-mask-horizontal';
+
+    document.body.appendChild(readingMask);
+
+    let cursorPositionY = 0;
+
+    document.addEventListener('mousemove', (e) => {
+        hasMovedMouse = true;
+        cursorPositionY = e.clientY;
+        updateHighlightBarPosition();
+        readingMask.style.setProperty('--y', `${e.clientY}px`);
+    });
+
+    window.addEventListener('wheel', () => {
+        updateHighlightBarPosition();
+    });
+
+    function updateHighlightBarPosition() {
+        if (adhdActive) {
+            readingMask.style.top = '0';
+        }
+    }
+
+    function speakText(text) {
+        // Guard against null, undefined, or empty text
+        if (!text || !text.trim()) return;
+        // Clean multiple whitespace, tabs, line breaks, and punctuation (commas, colons, etc.) so TTS never pronounces punctuation words
+        const cleanText = text
+            .replace(/,/g, ' ')
+            .replace(/[;:|/\\_]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        if (!cleanText) return;
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = "en-US";
+        utterance.rate = 1;
+        // Cancel any previous speech utterance to ensure immediate playback of current element
+        speechSynthesisInstance.cancel();
+        speechSynthesisInstance.speak(utterance);
+    }
+
+    onReady(() => {
+        const accessibilityBtn = document.getElementById("open-the-accessibility-menu");
+        const accessibilityMenu = document.getElementById("uw-main");
+        const overlay = document.getElementById("accessibility-overlay");
+        const closeBtn = document.getElementById("close-uw-main");
+
+        if (!accessibilityBtn || !accessibilityMenu || !overlay) {
+            return;
+        }
+
+        let hasSpoken = false;
+        let menuOpened = false;
+        let lastFocusedElement = null;
+        let tabPressCount = 0;
+        let menuClosedByEscape = false;
+
+        function speakText(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            speechSynthesis.speak(utterance);
+        }
+
+        document.addEventListener("keydown", function (e) {
+            if (e.key !== "Tab" || menuOpened) return;
+
+            if (menuClosedByEscape) return;
+
+            tabPressCount++;
+
+            if (tabPressCount === 1) {
+                e.preventDefault();
+                overlay.style.display = "flex";
+                accessibilityBtn.style.visibility = "visible";
+                accessibilityBtn.focus();
+
+                if (!hasSpoken) {
+                    speakText("Press Enter to open accessibility option, or press Tab again to continue");
+                    hasSpoken = true;
+                }
+            } else if (tabPressCount === 2) {
+                e.preventDefault();
+                overlay.style.display = "none";
+                accessibilityBtn.style.display = "none";
+            }
+        });
+
+        function openMenu() {
+            lastFocusedElement = document.activeElement;
+
+            accessibilityMenu.style.right = "0";
+            overlay.style.visibility = "hidden";
+            accessibilityBtn.style.visibility = "hidden";
+            menuOpened = true;
+            menuClosedByEscape = false; // Reset when menu is opened
+
+            const focusableElements = accessibilityMenu.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstFocusable =
+                focusableElements.length > 0 ? focusableElements[0] : accessibilityMenu;
+
+            if (firstFocusable === accessibilityMenu) {
+                accessibilityMenu.setAttribute("tabindex", "-1");
+            }
+            firstFocusable.focus();
+            tabPressCount = 0;
+        }
+
+        function closeMenu() {
+            accessibilityMenu.style.right = "-530px";
+            overlay.style.display = "none";
+            accessibilityBtn.style.display = "none";
+            tabPressCount = 0;
+            menuOpened = false;
+            menuClosedByEscape = true; // Mark as closed by Escape or manual close
+
+            if (lastFocusedElement) {
+                lastFocusedElement.focus();
+            }
+        }
+
+        accessibilityBtn.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openMenu();
+            }
+        });
+
+        accessibilityBtn.addEventListener("click", openMenu);
+
+        if (closeBtn) {
+            closeBtn.addEventListener("click", closeMenu);
+        }
+
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "Escape") {
+                closeMenu();
+            }
+        });
+
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) {
+                closeMenu();
+            }
+        });
+
+        document.addEventListener("keydown", (e) => {
+            if (e.ctrlKey && e.key === "F2") {
+                e.preventDefault();
+                if (menuOpened) {
+                    closeMenu();
+                } else {
+                    openMenu();
+                }
+            }
+        });
+    });
+
+
+    // Tracks the most recently spoken DOM node to enforce strict 'read-once' behavior per element
+    let lastSpokenNode = null;
+    // Tracks the most recently spoken text to prevent repeated speech on adjacent child transitions
+    let lastSpokenText = '';
+    // Debounce timer to ensure smooth speech triggering during rapid cursor movements
+    let ttsHoverTimer = null;
+
+    // Helper function to extract ONLY the visible label name for Radio Buttons (native and custom SVG radios)
+    function extractRadioLabel(radioEl, container) {
+        if (!radioEl && !container) return '';
+
+        const baseEl = container || radioEl;
+
+        // 1. Check parent FormControlLabel container (standard Material-UI MuiRadio)
+        const parentLabel = baseEl.closest('.MuiFormControlLabel-root, label');
+        if (parentLabel) {
+            // Target the specific label typography container if available
+            const muiLabel = parentLabel.querySelector('.MuiFormControlLabel-label');
+            if (muiLabel && muiLabel.textContent.trim()) {
+                return muiLabel.textContent.replace(/\s+/g, ' ').trim();
+            }
+            // For custom label markup (e.g. PlanDetails, NewMobileRecharge), clone node and strip input, svg, and ripple elements
+            const clone = parentLabel.cloneNode(true);
+            clone.querySelectorAll('input, svg, .MuiRadio-root, .MuiTouchRipple-root, [class*="radio-"]').forEach(n => n.remove());
+            const pureText = clone.textContent.replace(/\s+/g, ' ').trim();
+            if (pureText) return pureText;
+        }
+
+        // 2. Check MuiButton container with type="radio" (e.g. AddPayee, SelfTransfer, Beneficiary Selection)
+        const muiButton = baseEl.closest('.mui-button, button');
+        if (muiButton) {
+            const clone = muiButton.cloneNode(true);
+            clone.querySelectorAll('input, svg, .MuiTouchRipple-root').forEach(n => n.remove());
+            const btnText = clone.textContent.replace(/\s+/g, ' ').trim();
+            if (btnText) return btnText;
+        }
+
+        // 3. Check card / row container (e.g. SelectBankAccount, mobile recharge plan card, etc.)
+        const card = baseEl.closest('.select-bank-account__card, .mobile-recharge-plan__card, .new-recharge__history-card, .account-item, .account-container, tr, td, li');
+        if (card) {
+            const bankName = card.querySelector('.select-bank-account__card-bank-name')?.textContent?.trim();
+            const acctNo = card.querySelector('.select-bank-account__card-acct-no')?.textContent?.trim();
+            const acctVal = card.querySelector('.select-bank-account__card-value')?.textContent?.trim();
+            if (bankName || acctVal) {
+                return [bankName, acctNo, acctVal].filter(Boolean).join(' ');
+            }
+            const titleEl = card.querySelector('.mobile-recharge-plan__amount, .new-recharge__history-amount, .account-info, .account-type, .account-title');
+            if (titleEl && titleEl.textContent.trim()) {
+                return titleEl.textContent.replace(/\s+/g, ' ').trim();
+            }
+            const clone = card.cloneNode(true);
+            clone.querySelectorAll('input, svg, .MuiRadio-root, .MuiTouchRipple-root, [class*="radio-"]').forEach(n => n.remove());
+            const cardText = clone.textContent.replace(/\s+/g, ' ').trim();
+            if (cardText && cardText.length < 150) return cardText;
+        }
+
+        // 4. Check explicit ARIA label attributes or linked label[for]
+        if (radioEl) {
+            if (radioEl.getAttribute('aria-label')) {
+                return radioEl.getAttribute('aria-label').trim();
+            }
+            if (radioEl.id) {
+                const forLabel = document.querySelector(`label[for="${radioEl.id}"]`);
+                if (forLabel && forLabel.textContent.trim()) {
+                    return forLabel.textContent.replace(/\s+/g, ' ').trim();
+                }
+            }
+        }
+
+        // 5. Fallback to name attribute ONLY if it is human-readable and NOT a framework technical identifier
+        const technicalNames = ['controlled-radio-buttons-group', 'select', 'virtualid', 'product', 'radio', 'options', 'customradio'];
+        const rawName = (radioEl && (radioEl.getAttribute('name') || radioEl.name))
+            || (container && container.getAttribute('name'));
+        if (rawName && typeof rawName === 'string' && !technicalNames.includes(rawName.toLowerCase())) {
+            return rawName.replace(/([A-Z])/g, ' $1').replace(/[-_]/g, ' ').trim();
+        }
+
+        return '';
+    }
+
+    // Helper function to resolve exact text for buttons and links, handling broken '[object Object]' aria-labels and icon-only links
+    function resolveLinkOrButtonText(btnEl) {
+        if (!btnEl) return '';
+
+        // 1. Check valid aria-label (ignore broken '[object Object]' injected when React elements are passed to aria-label)
+        const rawAria = btnEl.getAttribute('aria-label');
+        if (rawAria && !rawAria.includes('[object Object]') && !rawAria.toLowerCase().includes('object object')) {
+            const cleanAria = rawAria.replace(/\s+/g, ' ').trim();
+            if (cleanAria) return cleanAria;
+        }
+
+        // 2. Check visible innerText or textContent (e.g. Forgot User ID, Forgot Password, Register)
+        const rawText = btnEl.innerText || btnEl.textContent || '';
+        const cleanText = rawText.replace(/\s+/g, ' ').trim();
+        if (cleanText) return cleanText;
+
+        // 3. Check title attribute
+        const titleAttr = btnEl.getAttribute('title');
+        if (titleAttr && titleAttr.trim()) return titleAttr.trim();
+
+        // 4. Check nested SVG title or alt attribute
+        const svgAlt = btnEl.querySelector('svg')?.getAttribute('aria-label') || btnEl.querySelector('img')?.getAttribute('alt');
+        if (svgAlt && svgAlt.trim()) return svgAlt.trim();
+
+        // 5. Intelligent Fallback for Icon-only Social Media and Store Links (e.g. Google Play, App Store, X, Facebook, Instagram)
+        const href = (btnEl.getAttribute('href') || '').toLowerCase();
+        const className = (btnEl.className || '').toString().toLowerCase();
+
+        if (className.includes('twitter') || href.includes('twitter.com') || href.includes('x.com')) return 'X';
+        if (className.includes('facebook') || href.includes('facebook.com')) return 'Facebook';
+        if (className.includes('insta') || href.includes('instagram.com')) return 'Instagram';
+        if (className.includes('playstore') || className.includes('googleplay') || href.includes('play.google.com')) return 'Google Play';
+        if (className.includes('apple') || href.includes('apple.com')) return 'App Store';
+        if (className.includes('youtube') || href.includes('youtube.com')) return 'YouTube';
+        if (className.includes('linkedin') || href.includes('linkedin.com')) return 'LinkedIn';
+
+        return '';
+    }
+
+    // Helper function to resolve accessible text, role, and label for any hovered or interacted element
+    function resolveAccessibleElement(target) {
+        // Exclude elements within the accessibility widget itself
+        if (!target || target.closest('.uwaw')) {
+            return null;
+        }
+
+        // Exclude modal backdrops, dialog wrappers, and whole page containers
+        if (target.matches('.MuiDialog-container, .MuiBackdrop-root, .MuiModal-root, .MuiDialog-root, .modal-backdrop, .tc-container, [role="dialog"], [role="document"], form, section, main, article, nav, header, footer')
+            || target.matches('.registration, .registration-wrapper, .col-1, .login-page, .login-wrapper, .MuiGrid-container, .MuiGrid-root, .MuiBox-root, .MuiContainer-root, .MuiPaper-root:not(.mui-card), #root, body, html')) {
+            return null;
+        }
+
+        // 1. Handle Checkboxes and Switches - Announces label and Checked/Unchecked state
+        const checkboxEl = target.matches('input[type="checkbox"]')
+            ? target
+            : target.closest('label, .MuiFormControlLabel-root, .MuiCheckbox-root, .MuiSwitch-root')?.querySelector('input[type="checkbox"]');
+        if (checkboxEl) {
+            // Determine if the checkbox acts as a switch toggle
+            const isSwitch = checkboxEl.getAttribute('role') === 'switch' || checkboxEl.closest('.mui-switch, .MuiSwitch-root');
+            // Locate the associated label from parent containers or explicit attributes
+            const parentLabel = checkboxEl.closest('.MuiFormControlLabel-root, label');
+            const labelText = parentLabel?.querySelector('.MuiFormControlLabel-label')?.textContent
+                || parentLabel?.textContent
+                || checkboxEl.getAttribute('aria-label')
+                || (checkboxEl.id ? document.querySelector(`label[for="${checkboxEl.id}"]`)?.textContent : '')
+                || '';
+            const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
+            // Determine state representation based on type
+            const stateText = isSwitch ? (checkboxEl.checked ? 'On' : 'Off') : (checkboxEl.checked ? 'Checked' : 'Unchecked');
+            const logicalNode = parentLabel || checkboxEl.closest('.MuiCheckbox-root, .MuiSwitch-root') || checkboxEl;
+            return {
+                node: logicalNode,
+                text: cleanLabel ? `${cleanLabel} ${stateText}` : stateText
+            };
+        }
+
+        // 2. Handle Radio Buttons (Native inputs, MuiButton radios, and custom SVG radios) - Read ONLY the label
+        const radioInput = target.matches('input[type="radio"]')
+            ? target
+            : target.closest('label, .MuiFormControlLabel-root, .MuiRadio-root, [role="radio"], .mui-button')?.querySelector('input[type="radio"]');
+        const customRadio = !radioInput && target.closest('.select-bank-account__radio-checked, .select-bank-account__radio-unchecked, [class*="radio-checked"], [class*="radio-unchecked"], [data-testid*="RadioButton"]');
+
+        if (radioInput || customRadio) {
+            const activeEl = radioInput || customRadio;
+            const cleanLabel = extractRadioLabel(radioInput, activeEl);
+            if (cleanLabel) {
+                const logicalNode = activeEl.closest('.MuiFormControlLabel-root, label, .mui-button, .select-bank-account__card, .MuiRadio-root') || activeEl;
+                // Speak ONLY the label text without 'Selected' or 'Not selected'
+                return {
+                    node: logicalNode,
+                    text: cleanLabel
+                };
+            }
+        }
+
+        // 3. Handle Select / Dropdown Elements (Native and Material-UI) - Read label and selected text
+        const selectEl = target.closest('.MuiSelect-select, select, [role="combobox"], .mui-dropdown');
+        if (selectEl) {
+            const formControl = selectEl.closest('.MuiFormControl-root, .mui-dropdown');
+            const labelText = formControl?.querySelector('.MuiInputLabel-root, label')?.textContent
+                || selectEl.getAttribute('aria-label')
+                || selectEl.getAttribute('placeholder')
+                || '';
+            const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
+            const selectedValue = (selectEl.textContent || selectEl.value || '').replace(/\s+/g, ' ').trim();
+            let speech = cleanLabel;
+            if (selectedValue && selectedValue !== cleanLabel) {
+                speech = cleanLabel ? `${cleanLabel} ${selectedValue}` : selectedValue;
+            }
+            if (speech) {
+                return {
+                    node: formControl || selectEl,
+                    text: speech
+                };
+            }
+        }
+
+        // 4. Handle Text Inputs, Textareas, and Date Pickers - Read exact UI label
+        const inputEl = target.matches('input, textarea')
+            ? target
+            : target.closest('.MuiInputBase-root')?.querySelector('input, textarea');
+        if (inputEl && inputEl.type !== 'checkbox' && inputEl.type !== 'radio' && inputEl.type !== 'hidden') {
+            const formControl = inputEl.closest('.MuiFormControl-root, .mui-text-field, .MuiTextField-root, .phoneNumberTextfield');
+            const labelText = formControl?.querySelector('.MuiFormLabel-root, .MuiInputLabel-root, label')?.textContent
+                || inputEl.getAttribute('aria-label')
+                || (inputEl.id ? document.querySelector(`label[for="${inputEl.id}"]`)?.textContent : '')
+                || inputEl.placeholder
+                || inputEl.name
+                || '';
+            const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
+            if (cleanLabel) {
+                return {
+                    node: formControl || inputEl,
+                    text: cleanLabel
+                };
+            }
+        }
+
+        // 5. Handle Buttons and Links - Read exact visible button text or intelligent icon name
+        const btnEl = target.closest('button, [role="button"], a');
+        if (btnEl) {
+            const cleanText = resolveLinkOrButtonText(btnEl);
+            if (cleanText) {
+                return {
+                    node: btnEl,
+                    text: cleanText
+                };
+            }
+        }
+
+        // 6. Handle Selectable Cards (e.g. Language Selection Cards, Goal Cards)
+        const muiCardEl = target.closest('.mui-card, .rewards-mui-card');
+        if (muiCardEl) {
+            const langDisplay = muiCardEl.querySelector('.mui-card__language-display')?.textContent?.trim();
+            const langName = muiCardEl.querySelector('.mui-card__language-name')?.textContent?.trim();
+            const goalName = muiCardEl.querySelector('.mui-card__goal-name')?.textContent?.trim();
+            let cardText = '';
+            if (langDisplay && langName && langDisplay !== langName) {
+                cardText = `${langDisplay} ${langName}`;
+            } else if (langDisplay || langName) {
+                cardText = langDisplay || langName;
+            } else if (goalName) {
+                cardText = goalName;
+            }
+            if (cardText) {
+                return {
+                    node: muiCardEl,
+                    text: cardText
+                };
+            }
+        }
+
+        // 7. Handle Images
+        if (target.tagName === 'IMG') {
+            const altText = target.getAttribute('alt') || target.getAttribute('aria-label') || target.getAttribute('title');
+            if (altText) {
+                return {
+                    node: target,
+                    text: altText.trim()
+                };
+            }
+        }
+
+        // 8. Handle Standard UI Leaf Text Elements (Paragraphs, Headings, Spans, Labels, List Items, Table Cells, and pure leaf DIVs)
+        const CONTAINER_TAGS = ['FORM', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'NAV', 'MAIN', 'ASIDE', 'DIALOG', 'BODY', 'HTML', 'UL', 'OL', 'TABLE', 'TBODY', 'THEAD', 'TR'];
+        if (CONTAINER_TAGS.includes(target.tagName)) {
+            return null;
+        }
+
+        // If target has any child elements, it is a parent container, not a pure leaf element
+        if (target.childElementCount > 0) {
+            return null;
+        }
+
+        const TEXT_TAGS = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'LABEL', 'TH', 'TD', 'LI', 'B', 'STRONG', 'EM', 'SMALL', 'DIV'];
+        if (TEXT_TAGS.includes(target.tagName)) {
+            // Must NOT contain interactive elements inside (buttons, inputs, etc.)
+            if (target.querySelector('button, input, select, textarea, [role="button"], [role="dialog"], a')) {
+                return null;
+            }
+            const text = (target.innerText || target.textContent || '').replace(/\s+/g, ' ').trim();
+            // Read concise UI labels, titles, or single sentences (never whole long pages/articles)
+            if (text && text.length > 0 && text.length <= 120) {
+                return {
+                    node: target,
+                    text: text
+                };
+            }
+        }
+
+        return null;
+    }
+
+    document.addEventListener("click", (event) => {
+        tabPressCount = 0;
+        if (!screenReader) return;
+
+        let element = event.target;
+        if (!element || element.closest('.uwaw')) return;
+
+        // If clicking a radio button, announce ONLY its label name without any status
+        const radioInput = element.matches('input[type="radio"]')
+            ? element
+            : element.closest('label, .MuiFormControlLabel-root, .MuiRadio-root, [role="radio"], .mui-button')?.querySelector('input[type="radio"]');
+        const customRadio = !radioInput && element.closest('.select-bank-account__radio-checked, .select-bank-account__radio-unchecked, [class*="radio-checked"], [class*="radio-unchecked"], [data-testid*="RadioButton"]');
+
+        if (radioInput || customRadio) {
+            const activeEl = radioInput || customRadio;
+            const cleanLabel = extractRadioLabel(radioInput, activeEl);
+            if (cleanLabel) {
+                const logicalNode = activeEl.closest('.MuiFormControlLabel-root, label, .mui-button, .select-bank-account__card, .MuiRadio-root') || activeEl;
+                // Lock lastSpokenNode so mouseover does not immediately repeat after clicking
+                lastSpokenNode = logicalNode;
+                lastSpokenText = cleanLabel;
+                speakText(cleanLabel);
+                return;
+            }
+        }
+
+        // If clicking a checkbox, immediately announce its updated toggle state (Checked / Unchecked)
+        const checkboxEl = element.matches('input[type="checkbox"]')
+            ? element
+            : element.closest('label, .MuiFormControlLabel-root, .MuiCheckbox-root, .MuiSwitch-root')?.querySelector('input[type="checkbox"]');
+        if (checkboxEl) {
+            // Slight delay allows the browser/React state to commit the checked transition
+            setTimeout(() => {
+                const isSwitch = checkboxEl.getAttribute('role') === 'switch' || checkboxEl.closest('.mui-switch, .MuiSwitch-root');
+                const parentLabel = checkboxEl.closest('.MuiFormControlLabel-root, label');
+                const labelText = parentLabel?.querySelector('.MuiFormControlLabel-label')?.textContent
+                    || parentLabel?.textContent
+                    || checkboxEl.getAttribute('aria-label')
+                    || '';
+                const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
+                const isChecked = checkboxEl.checked;
+                const stateText = isSwitch ? (isChecked ? 'On' : 'Off') : (isChecked ? 'Checked' : 'Unchecked');
+                const speech = cleanLabel ? `${cleanLabel} ${stateText}` : stateText;
+
+                // Lock lastSpokenNode so mouseover does not immediately repeat after clicking
+                lastSpokenNode = parentLabel || checkboxEl.closest('.MuiCheckbox-root, .MuiSwitch-root') || checkboxEl;
+                lastSpokenText = speech;
+                speakText(speech);
+            }, 60);
+            return;
+        }
+
+        // If clicking a selectable card (e.g. Language Card), announce its name
+        const clickedCard = element.closest('.mui-card, .rewards-mui-card');
+        if (clickedCard) {
+            const langDisplay = clickedCard.querySelector('.mui-card__language-display')?.textContent?.trim();
+            const langName = clickedCard.querySelector('.mui-card__language-name')?.textContent?.trim();
+            const goalName = clickedCard.querySelector('.mui-card__goal-name')?.textContent?.trim();
+            let cardText = '';
+            if (langDisplay && langName && langDisplay !== langName) {
+                cardText = `${langDisplay} ${langName}`;
+            } else if (langDisplay || langName) {
+                cardText = langDisplay || langName;
+            } else if (goalName) {
+                cardText = goalName;
+            }
+            if (cardText && cardText !== lastSpokenText) {
+                lastSpokenNode = clickedCard;
+                lastSpokenText = cardText;
+                speakText(cardText);
+            }
+            return;
+        }
+
+        // If clicking a button or link, announce its exact button label (never whole containers)
+        const btnEl = element.closest('button, [role="button"], a');
+        if (btnEl) {
+            const cleanText = resolveLinkOrButtonText(btnEl);
+            if (cleanText && cleanText !== lastSpokenText) {
+                lastSpokenNode = btnEl;
+                lastSpokenText = cleanText;
+                speakText(cleanText);
+            }
+        }
+    });
+
+    document.addEventListener("mouseup", () => {
+        let selectedText = window.getSelection().toString();
+        if (selectedText && screenReader) {
+            lastSpokenText = selectedText;
+            speakText(selectedText);
+        }
+    });
+
+    document.addEventListener("mouseover", (event) => {
+        if (!screenReader || !hasMovedMouse) return;
+
+        const target = event.target;
+        if (!target || target.closest('.uwaw')) return;
+
+        const info = resolveAccessibleElement(target);
+        if (!info || !info.text) return;
+
+        // Strict 'Read Once' enforcement: if cursor is still within the same logical entity, skip speaking again
+        if (lastSpokenNode && (lastSpokenNode === info.node || lastSpokenNode.contains(target))) {
+            return;
+        }
+
+        // Prevent repeated speech if identical text is encountered on linked child wrappers
+        if (lastSpokenText === info.text && lastSpokenNode && lastSpokenNode.contains(target)) {
+            return;
+        }
+
+        clearTimeout(ttsHoverTimer);
+        // Small debounce prevents stuttering and audio clipping when rapidly sweeping mouse across page
+        ttsHoverTimer = setTimeout(() => {
+            if (!screenReader || !hasMovedMouse) return;
+
+            // Commit the active logical entity and speech text
+            lastSpokenNode = info.node;
+            lastSpokenText = info.text;
+
+            speakText(info.text);
+        }, 120);
+    });
+
+    document.addEventListener("mouseout", (event) => {
+        // Reset last spoken node and cancel speech when mouse completely exits its bounding tree into an unrelated target
+        if (lastSpokenNode && event.relatedTarget && !lastSpokenNode.contains(event.relatedTarget)) {
+            lastSpokenNode = null;
+            lastSpokenText = '';
+            clearTimeout(ttsHoverTimer);
+            if (speechSynthesisInstance && speechSynthesisInstance.speaking) {
+                speechSynthesisInstance.cancel();
+            }
+        }
+    });
+
+    function toggleTextToSpeech() {
+        const tickIcon = document.getElementById('tickIcon_sp');
+        const button = document.getElementById('featureItem_sp');
+        button.classList.toggle(prefix + 'feature-active');
+        tickIcon.style.display = tickIcon.style.display === 'inline-flex' ? 'none' : 'inline-flex';
+        screenReader = !screenReader;
+        saveSettings();
+        if (speechSynthesis.speaking) {
+            speechSynthesis.cancel()
+        }
+    }
+    onReady(function () {
+        const speakButton = document.getElementById('speak');
+        if (speakButton) {
+            speakButton.addEventListener('click', toggleTextToSpeech)
+        }
+    });
+
+    const ZOOM_LEVELS = [1, 1.05, 1.10, 1.15, 1.20];
+    const ZOOM_STYLE_ID = 'ux4g-zoom-styles';
+
+    function applyTextSettings() {
+        const targetZoom = ZOOM_LEVELS[fontSizeCount] !== undefined ? ZOOM_LEVELS[fontSizeCount] : 1;
+        let style = document.getElementById(ZOOM_STYLE_ID);
+
+        if (targetZoom === 1) {
+            if (style) style.remove();
+            // Remove the --app-zoom CSS variable when zoom returns to normal
+            document.documentElement.style.removeProperty('--app-zoom');
+            // Reset any residual browser window scroll offset
+            window.scrollTo(0, 0);
+            document.querySelectorAll('body > *:not(.uwaw), .MuiDialog-paper, .mui-dialog').forEach(el => {
+                if (el.style.zoom) el.style.zoom = '';
+            });
+        } else {
+            // Set the dynamic --app-zoom variable so CSS height calculations adapt to the zoom factor
+            document.documentElement.style.setProperty('--app-zoom', targetZoom);
+            // Reset window scroll to ensure fixed headers and top content remain properly aligned
+            window.scrollTo(0, 0);
+            if (!style) {
+                style = document.createElement('style');
+                style.id = ZOOM_STYLE_ID;
+                document.head.appendChild(style);
+            }
+            style.textContent = `
+                :root {
+                    --app-zoom: ${targetZoom};
+                }
+                #root,
+                body > *:not(.uwaw):not(.MuiDialog-root):not(.MuiModal-root):not(.MuiPopover-root):not(#${ZOOM_STYLE_ID}) {
+                    zoom: ${targetZoom} !important;
+                }
+                .MuiDialog-root .MuiDialog-paper,
+                .MuiDialog-container .MuiDialog-paper,
+                .mui-dialog {
+                    zoom: ${targetZoom} !important;
+                }
+            `;
+            document.querySelectorAll('body > *:not(.uwaw)').forEach(el => {
+                if (el.style.zoom) el.style.zoom = '';
+            });
+        }
+    }
+
+    function adjustFontSize(data) {
+        if (data === '+1') {
+            fontSizeCount = (fontSizeCount + 1) % 5;
+        } else if (data === '-1') {
+            fontSizeCount = Math.max(0, fontSizeCount - 1);
+        }
+        applyTextSettings();
+
+        const button = document.getElementById('featureItem');
+        const tickIcon = document.getElementById('tickIcon');
+        const fontCheck = document.getElementById('featureSteps');
+        const smallerTextBtn = document.getElementById('btn-s17');
+
+        if (button) button.classList.add(prefix + 'feature-active');
+
+        saveSettings();
+
+        if (smallerTextBtn) {
+            smallerTextBtn.disabled = fontSizeCount <= 0;
+        }
+
+        if (fontSizeCount === 0) {
+            if (button) button.classList.remove(prefix + 'feature-active');
+            if (tickIcon) tickIcon.style.display = 'none';
+            if (fontCheck) fontCheck.classList.remove(prefix + 'featureSteps-visible');
+            let elements = document.querySelectorAll('body > *:not(.uwaw)');
+            elements.forEach(el => el.style.zoom = 1);
+            fontSizeSpans.forEach(span => span.classList.remove(prefix + 'active'));
+        } else {
+            if (tickIcon) tickIcon.style.display = 'inline-flex';
+            if (fontCheck) fontCheck.classList.add(prefix + 'featureSteps-visible');
+            fontSizeSpans.forEach(span => span.classList.remove(prefix + 'active'));
+            fontSizeSpans.forEach((span, index) => {
+                if (index <= fontSizeCount - 1) {
+                    span.classList.add(prefix + 'active');
+                }
+            });
+        }
+    }
+
+    onReady(function () {
+        const btnIncrease = document.getElementById('btn-s9');
+        const btnDecrease = document.getElementById('btn-s17');
+
+        if (btnIncrease) {
+            btnIncrease.addEventListener('click', () => adjustFontSize('+1'));
+        }
+        if (btnDecrease) {
+            btnDecrease.addEventListener('click', () => adjustFontSize('-1'));
+        }
+    });
+
+    // Configured line height progression with gentle increments (3 levels)
+    const LINE_HEIGHT_LEVELS = [
+        // Level 0: Default state
+        'normal',
+        // Level 1: Gentle increment
+        1.3,
+        // Level 2: Moderate increment
+        1.5,
+        // Level 3: Maximum comfortable spacing
+        1.7
+    ];
+
+    function createLineHeightStyles() {
+        // Remove previous dynamic line-height style sheet if present
+        const existingStyle = document.getElementById('ux4g-line-height-styles');
+        if (existingStyle) {
+            existingStyle.remove();
+        }
+
+        // Create a new style element to inject dynamic line-height rules
+        const style = document.createElement('style');
+        style.id = 'ux4g-line-height-styles';
+
+        if (lineHeightCount > 0) {
+            // Retrieve customized line-height value for active count
+            const lineHeightValue = LINE_HEIGHT_LEVELS[lineHeightCount] || 1.25;
+            style.textContent = `
+                .ux4g-line-height,
+                .MuiDialog-paper p, .MuiDialog-paper span, .MuiDialog-paper div,
+                .mui-dialog p, .mui-dialog span, .mui-dialog div {
+                    line-height: ${lineHeightValue} !important;
+                }
+                /* Prevent buttons, badges, and icon wrappers from stretching vertically */
+                button .ux4g-line-height,
+                .ux4g-line-height.fas,
+                .ux4g-line-height.far,
+                .ux4g-line-height.fal,
+                .ux4g-line-height.ux4g-icon,
+                .ux4g-line-height.material-icons {
+                    line-height: inherit !important;
+                }
+            `;
+        }
+
+        // Append the configured line-height rules to the document head
+        document.head.appendChild(style);
+    }
+
+    function updateLineHeight() {
+        document.querySelectorAll('.ux4g-line-height').forEach((el) => {
+            el.classList.remove('ux4g-line-height');
+        });
+
+        if (lineHeightCount > 0) {
+            createLineHeightStyles();
+
+            const textElements = document.querySelectorAll('p:not(.uwaw *):not(.uwaw), h1:not(.uwaw *):not(.uwaw), h2:not(.uwaw *):not(.uwaw), h3:not(.uwaw *):not(.uwaw), h4:not(.uwaw *):not(.uwaw), h5:not(.uwaw *):not(.uwaw), h6:not(.uwaw *):not(.uwaw), div:not(.uwaw *):not(.uwaw), span:not(.uwaw *):not(.uwaw), li:not(.uwaw *):not(.uwaw), td:not(.uwaw *):not(.uwaw), th:not(.uwaw *):not(.uwaw)');
+
+            // requestAnimationFrame avoids layout thrash when applying classes to many elements
+            requestAnimationFrame(() => {
+                textElements.forEach((el) => {
+                    if (el.offsetHeight === 0 || !el.textContent.trim()) return;
+
+                    el.classList.add('ux4g-line-height');
+                });
+            });
+        } else {
+            const existingStyle = document.getElementById('ux4g-line-height-styles');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+        }
+    }
+
+    function adjustLineHeight() {
+        const button = document.getElementById('featureItem-lh');
+
+        button.classList.add(prefix + 'feature-active');
+        lineHeightCount = (lineHeightCount + 1) % 4;
+
+        if (lineHeightCount !== 0) {
+            updateLineHeight();
+        }
+
+        saveSettings();
+
+        const tickIcon = document.getElementById('tickIcon-lh');
+        const lineHeightCheck = document.getElementById('featureSteps-lh');
+
+        if (lineHeightCount === 0) {
+            button.classList.remove(prefix + 'feature-active');
+            tickIcon.style.display = 'none';
+            lineHeightCheck.classList.remove(prefix + 'featureSteps-visible');
+
+            document.querySelectorAll('.ux4g-line-height').forEach((el) => {
+                el.classList.remove('ux4g-line-height');
+            });
+
+            const existingStyle = document.getElementById('ux4g-line-height-styles');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+
+            lineHeightSpans.forEach(span => span.classList.remove(prefix + 'active'));
+        } else {
+            tickIcon.style.display = 'inline-flex';
+            lineHeightSpans.forEach(span => span.classList.remove(prefix + 'active'));
+            lineHeightSpans.forEach((span, index) => {
+                if (index <= lineHeightCount - 1) {
+                    span.classList.add(prefix + 'active');
+                }
+            });
+            lineHeightCheck.classList.add(prefix + 'featureSteps-visible');
+        }
+    }
+
+    onReady(function () {
+        const lineHeightBtn = document.getElementById('btn-s12');
+        if (lineHeightBtn) {
+            lineHeightBtn.addEventListener('click', adjustLineHeight)
+        }
+    });
+
+    // Configured text spacing levels with reduced increments to avoid layout overflow
+    const SPACING_LEVELS = [
+        // Level 0: Default state
+        { letter: '0em', word: '0em' },
+        // Level 1: Subtle spacing
+        { letter: '0.01em', word: '0.04em' },
+        // Level 2: Moderate spacing
+        { letter: '0.04em', word: '0.07em' },
+        // Level 3: Maximum safe spacing
+        { letter: '0.06em', word: '0.10em' }
+    ];
+
+    function createTextSpacingStyles() {
+        // Remove any previous dynamic text spacing style sheet
+        const existingStyle = document.getElementById('ux4g-text-spacing-styles');
+        if (existingStyle) {
+            existingStyle.remove();
+        }
+
+        // Create a new style element to inject dynamic text spacing rules
+        const style = document.createElement('style');
+        style.id = 'ux4g-text-spacing-styles';
+
+        if (textSpacingCount > 0) {
+            // Retrieve the active letter and word spacing values for the current level
+            const currentSpacing = SPACING_LEVELS[textSpacingCount] || SPACING_LEVELS[1];
+            style.textContent = `
+                body.${prefix}text-spacing,
+                body.${prefix}text-spacing *:not(.uwaw):not(.uwaw *):not(.fas):not(.far):not(.fal):not(.ux4g-icon):not(.material-icons):not(input[maxlength="1"]):not(input[type="password"]):not(.MuiSelect-icon):not(.MuiSvgIcon-root),
+                .ux4g-text-spacing,
+                .MuiDialog-paper *:not(.uwaw *),
+                .mui-dialog *:not(.uwaw *),
+                .MuiSelect-select,
+                .MuiSelect-select *,
+                .mui-dropdown,
+                .mui-dropdown *,
+                .select-button-dropdown,
+                .select-button-dropdown *,
+                .MuiPopover-root,
+                .MuiPopover-root *,
+                .MuiMenu-root,
+                .MuiMenu-root *,
+                .MuiMenu-paper,
+                .MuiMenu-paper *,
+                .MuiMenuItem-root,
+                .MuiMenuItem-root *,
+                .acContainer,
+                .acContainer *,
+                .acName,
+                .acNo,
+                .acTag,
+                .acBalancelabel,
+                .acBalance,
+                .cardTypeAcTag,
+                .MuiInputLabel-root,
+                .MuiFormHelperText-root,
+                .MuiInputBase-input {
+                    letter-spacing: ${currentSpacing.letter} !important;
+                    word-spacing: ${currentSpacing.word} !important;
+                }
+                /* Prevent distorted alignment on font icons, OTP inputs, select arrow icons, and password fields */
+                .ux4g-text-spacing.fas,
+                .ux4g-text-spacing.far,
+                .ux4g-text-spacing.fal,
+                .ux4g-text-spacing.ux4g-icon,
+                .ux4g-text-spacing.material-icons,
+                input[maxlength="1"].ux4g-text-spacing,
+                input[type="password"].ux4g-text-spacing,
+                .MuiSelect-icon,
+                .MuiSelect-icon *,
+                .MuiSvgIcon-root {
+                    letter-spacing: normal !important;
+                    word-spacing: normal !important;
+                }
+            `;
+        }
+
+        // Append the configured styles to the document head
+        document.head.appendChild(style);
+    }
+
+    function updateLetterSpacing() {
+        document.querySelectorAll('.ux4g-text-spacing').forEach((el) => {
+            el.classList.remove('ux4g-text-spacing');
+        });
+
+        if (textSpacingCount > 0) {
+            document.body.classList.add(prefix + 'text-spacing');
+            createTextSpacingStyles();
+
+            document.querySelectorAll('body *:not(.uwaw *):not(.uwaw)').forEach((el) => {
+                el.classList.add('ux4g-text-spacing');
+            });
+        } else {
+            document.body.classList.remove(prefix + 'text-spacing');
+            const existingStyle = document.getElementById('ux4g-text-spacing-styles');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+        }
+    }
+
+    function adjustTextSpacing() {
+        const button = document.getElementById('featureItem-ts');
+        button.classList.add(prefix + 'feature-active');
+        textSpacingCount = (textSpacingCount + 1) % 4;
+
+        if (textSpacingCount > 0) {
+            updateLetterSpacing();
+        }
+
+        saveSettings();
+        const tickIcon = document.getElementById('tickIcon-ts');
+        const textSpacingCheck = document.getElementById('featureSteps-ts');
+
+        if (textSpacingCount <= 0) {
+            button.classList.remove(prefix + 'feature-active');
+            tickIcon.style.display = 'none';
+            textSpacingCheck.classList.remove(prefix + 'featureSteps-visible');
+
+            document.querySelectorAll('.ux4g-text-spacing').forEach(el => {
+                el.classList.remove('ux4g-text-spacing');
+            });
+
+            const existingStyle = document.getElementById('ux4g-text-spacing-styles');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+
+            textSpacingSpans.forEach(span => span.classList.remove(prefix + 'active'))
+        } else {
+            tickIcon.style.display = 'inline-flex';
+            textSpacingSpans.forEach(span => span.classList.remove(prefix + 'active'));
+            textSpacingSpans.forEach((span, index) => {
+                if (index <= textSpacingCount - 1) {
+                    span.classList.add(prefix + 'active')
+                }
+            });
+            textSpacingCheck.classList.add(prefix + 'featureSteps-visible')
+        }
+    }
+
+    onReady(function () {
+        const spacingBtn = document.getElementById('btn-s13');
+        if (spacingBtn) {
+            spacingBtn.addEventListener('click', adjustTextSpacing)
+        }
+    });
+
+    function toggleHighlightLinks() {
+        const button = document.getElementById('featureItem-ht');
+        const tickIcon = document.getElementById('tickIcon-ht');
+        button.classList.toggle(prefix + 'feature-active');
+        tickIcon.style.display = tickIcon.style.display === 'inline-flex' ? 'none' : 'inline-flex';
+        document.body.classList.toggle(prefix + 'highlight-links');
+        let tool = document.querySelector('.uwaw');
+        if (tool) {
+            tool.classList.remove(prefix + 'highlight-links')
+        }
+        saveSettings()
+    }
+    onReady(function () {
+        const highlightBtn = document.getElementById('btn-s10');
+        if (highlightBtn) {
+            highlightBtn.addEventListener('click', toggleHighlightLinks)
+        }
+    });
+
+    function toggleDyslexiaMode() {
+        const button = document.getElementById('featureItem-df');
+        const tickIcon = document.getElementById('tickIcon-df');
+        button.classList.toggle(prefix + 'feature-active');
+        tickIcon.style.display = tickIcon.style.display === 'inline-flex' ? 'none' : 'inline-flex';
+        document.body.classList.toggle(prefix + 'dyslexia-mode');
+        saveSettings()
+    }
+    onReady(function () {
+        const dyslexiaBtn = document.getElementById('btn-df');
+        if (dyslexiaBtn) {
+            dyslexiaBtn.addEventListener('click', toggleDyslexiaMode)
+        }
+    });
+
+    function hideImages() {
+        const button = document.getElementById('featureItem-hi');
+        const tickIcon = document.getElementById('tickIcon-hi');
+        button.classList.toggle(prefix + 'feature-active');
+        tickIcon.style.display = tickIcon.style.display === 'inline-flex' ? 'none' : 'inline-flex';
+        document.body.classList.toggle(prefix + 'hide-images');
+        saveSettings()
+    }
+    onReady(function () {
+        const hideImagesBtn = document.getElementById('btn-s11');
+        if (hideImagesBtn) {
+            hideImagesBtn.addEventListener('click', hideImages)
+        }
+    });
+
+    function changeCursor() {
+        const button = document.getElementById('featureItem-Cursor');
+        const tickIcon = document.getElementById('tickIcon-cursor');
+        button.classList.toggle(prefix + 'feature-active');
+        tickIcon.style.display = tickIcon.style.display === 'inline-flex' ? 'none' : 'inline-flex';
+        document.body.classList.toggle(prefix + 'custom-cursor');
+        saveSettings()
+    }
+    onReady(function () {
+        const cursorBtn = document.getElementById('btn-cursor');
+        if (cursorBtn) {
+            cursorBtn.addEventListener('click', changeCursor)
+        }
+    });
+
+    function toggleDarkMode() {
+        const button = document.getElementById('featureItem-ht-dark');
+        const tickIcon = document.getElementById('tickIcon-ht-dark');
+        button.classList.toggle(prefix + 'feature-active');
+        tickIcon.style.display = tickIcon.style.display === 'inline-flex' ? 'none' : 'inline-flex';
+        document.body.classList.toggle(prefix + "dark-mode");
+        saveSettings()
+    }
+    onReady(function () {
+        const darkModeBtn = document.getElementById('dark-btn');
+        if (darkModeBtn) {
+            darkModeBtn.addEventListener('click', toggleDarkMode)
+        }
+    });
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            const uwMain = document.getElementById('uw-main');
+            if (uwMain) {
+                uwMain.style.right = '-530px';
+            }
+        }
+    });
+
+    function invertColor() {
+        const button = document.getElementById('featureItem-ic');
+        const tickIcon = document.getElementById('tickIcon-ic');
+        button.classList.toggle(prefix + 'feature-active');
+        tickIcon.style.display = tickIcon.style.display === 'inline-flex' ? 'none' : 'inline-flex';
+        document.documentElement.classList.toggle(prefix + "invert-colors");
+        saveSettings()
+    }
+    onReady(function () {
+        const invertBtn = document.getElementById('btn-invert');
+        if (invertBtn) {
+            invertBtn.addEventListener('click', invertColor)
+        }
+    });
+
+    function saturateColor() {
+        const button = document.getElementById('featureItem-saturate');
+        const tickIcon = document.getElementById('tickIcon-saturate');
+        const saturateCheck = document.getElementById('featureStepsSaturate');
+
+        document.documentElement.classList.remove(prefix + 'saturate-low', prefix + 'saturate-high', prefix + 'saturate-desaturate');
+
+        saturateCount = (saturateCount + 1) % 4;
+
+        for (let i = 0; i <= 3; i++) {
+            const textElement = document.getElementById(`saturate-text-${i}`);
+            const textElement1 = document.getElementById(`saturate-detail-text-${i}`);
+            if (textElement) {
+                textElement.style.display = 'none';
+            }
+            if (textElement1) {
+                textElement1.style.display = 'none';
+            }
+        }
+
+        const currentTextElement = document.getElementById(`saturate-text-${saturateCount}`);
+        if (currentTextElement) {
+            currentTextElement.style.display = 'inline';
+        }
+
+        const currentTextElement1 = document.getElementById(`saturate-detail-text-${saturateCount}`);
+        if (currentTextElement1) {
+            currentTextElement1.style.display = 'inline';
+        }
+
+        if (saturateCount === 0) {
+            button.classList.remove(prefix + 'feature-active');
+            tickIcon.style.display = 'none';
+            saturateCheck.classList.remove(prefix + 'featureSteps-visible');
+            saturateSpans.forEach(span => span.classList.remove(prefix + 'active'));
+        } else {
+            button.classList.add(prefix + 'feature-active');
+            tickIcon.style.display = 'inline-flex';
+            saturateCheck.classList.add(prefix + 'featureSteps-visible');
+
+            if (saturateCount === 1) {
+                document.documentElement.classList.add(prefix + 'saturate-low');
+            } else if (saturateCount === 2) {
+                document.documentElement.classList.add(prefix + 'saturate-high');
+            } else if (saturateCount === 3) {
+                document.documentElement.classList.add(prefix + 'saturate-desaturate');
+            }
+
+            saturateSpans.forEach(span => span.classList.remove(prefix + 'active'));
+            saturateSpans.forEach((span, index) => {
+                if (index <= saturateCount - 1) {
+                    span.classList.add(prefix + 'active');
+                }
+            });
+        }
+
+        saveSettings();
+    }
+
+    onReady(function () {
+        const saturateBtn = document.getElementById('btn-saturate');
+        if (saturateBtn) {
+            saturateBtn.addEventListener('click', saturateColor)
+        }
+    });
+
+    function pauseAnimation() {
+        const button = document.getElementById('featureItem-animate');
+        const tickIcon = document.getElementById('tickIcon-animate');
+        button.classList.toggle(prefix + 'feature-active');
+        tickIcon.style.display = tickIcon.style.display === 'inline-flex' ? 'none' : 'inline-flex';
+
+        document.body.classList.toggle(prefix + 'animation-pause');
+
+        const isAnimationPaused = document.body.classList.contains(prefix + 'animation-pause');
+
+        if (isAnimationPaused) {
+            document.querySelectorAll('video:not(.uwaw video):not(.uwaw)').forEach(video => {
+                if (!video.paused) {
+                    video.setAttribute('data-was-playing', 'true');
+                    video.pause();
+                }
+            });
+
+            document.querySelectorAll('audio:not(.uwaw audio):not(.uwaw)').forEach(audio => {
+                if (!audio.paused) {
+                    audio.setAttribute('data-was-playing', 'true');
+                    audio.pause();
+                }
+            });
+        } else {
+            document.querySelectorAll('video[data-was-playing="true"]:not(.uwaw video):not(.uwaw)').forEach(video => {
+                video.play();
+                video.removeAttribute('data-was-playing');
+            });
+
+            document.querySelectorAll('audio[data-was-playing="true"]:not(.uwaw audio):not(.uwaw)').forEach(audio => {
+                audio.play();
+                audio.removeAttribute('data-was-playing');
+            });
+        }
+
+        saveSettings();
+    }
+
+    onReady(function () {
+        const pauseAnimationBtn = document.getElementById('btn-animation');
+        if (pauseAnimationBtn) {
+            pauseAnimationBtn.addEventListener('click', pauseAnimation);
+        }
+    });
+
+    function toggleADHDFriendlyMode() {
+        const button = document.getElementById('featureItem-adhd');
+        const tickIcon = document.getElementById('tickIcon-adhd');
+
+        if (adhdActive) {
+            button.classList.remove(prefix + 'feature-active');
+            tickIcon.style.display = 'none';
+
+            readingMask.classList.add('mask-hidden');
+            readingMask.classList.remove('mask-visible');
+            document.body.classList.remove(prefix + 'adhd-saturate');
+            adhdActive = false;
+        } else {
+            button.classList.add(prefix + 'feature-active');
+            tickIcon.style.display = 'inline-flex';
+            readingMask.classList.remove('mask-hidden');
+            readingMask.classList.add('mask-visible');
+            document.body.classList.add(prefix + 'adhd-saturate');
+            adhdActive = true;
+        }
+
+        saveSettings();
+    }
+
+    onReady(function () {
+        const adhdBtn = document.getElementById('btn-adhd');
+        if (adhdBtn) {
+            adhdBtn.addEventListener('click', toggleADHDFriendlyMode)
+        }
+    });
+
+    function resetSettings() {
+        const cookieDomain = getCookieDomain();
+
+        if (cookieDomain) {
+            document.cookie = `${SETTINGS_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${cookieDomain}`;
+        } else {
+            document.cookie = `${SETTINGS_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/`;
+        }
+        speechSynthesisInstance.cancel();
+        const allTextNodes = document.body.querySelectorAll('p:not(.uwaw *), h1:not(.uwaw *), h2:not(.uwaw *), h3:not(.uwaw *), h4:not(.uwaw *), h5:not(.uwaw *), h6:not(.uwaw *), span:not(.uwaw *), li:not(.uwaw *), a:not(.uwaw *)');
+        allTextNodes.forEach(node => {
+            node.innerHTML = node.innerHTML.replace(/<span style="font-weight: bold !important;?[^"']*["']>(.*?)<\/span>/g, '$1')
+        });
+
+        document.querySelectorAll('.ux4g-line-height').forEach((el) => {
+            el.classList.remove('ux4g-line-height');
+        });
+
+        const lineHeightStyle = document.getElementById('ux4g-line-height-styles');
+        if (lineHeightStyle) {
+            lineHeightStyle.remove();
+        }
+
+        document.querySelectorAll('.ux4g-text-spacing').forEach((el) => {
+            el.classList.remove('ux4g-text-spacing');
+        });
+
+        const textSpacingStyle = document.getElementById('ux4g-text-spacing-styles');
+        if (textSpacingStyle) {
+            textSpacingStyle.remove();
+        }
+
+        const zoomStyle = document.getElementById(ZOOM_STYLE_ID);
+        if (zoomStyle) {
+            zoomStyle.remove();
+        }
+        // Clean up dynamic --app-zoom property upon resetting accessibility settings
+        document.documentElement.style.removeProperty('--app-zoom');
+        // Reset window scroll to ensure top layout alignment is preserved
+        window.scrollTo(0, 0);
+
+        document.querySelectorAll('body *:not(.uwaw *):not(.uwaw), .MuiDialog-paper, .mui-dialog').forEach((el) => {
+            el.style.fontSize = "";
+            el.style.lineHeight = "";
+            el.style.cursor = "";
+            el.style.zoom = "";
+            el.classList.remove(prefix + "active");
+            el.classList.remove(prefix + 'animation-pause');
+        });
+
+        adhdActive = false;
+        document.body.classList.remove(prefix + "dark-mode", prefix + "custom-cursor", prefix + "dyslexia-mode", prefix + "highlight-links", prefix + "hide-images", prefix + "animation-pause", prefix + 'saturate-low', prefix + 'saturate-high', prefix + 'saturate-desaturate', prefix + 'adhd-saturate', prefix + 'text-spacing');
+        document.querySelectorAll('video[data-was-playing="true"]:not(.uwaw video):not(.uwaw)').forEach(video => {
+            video.play();
+            video.removeAttribute('data-was-playing');
+        });
+
+        document.querySelectorAll('audio[data-was-playing="true"]:not(.uwaw audio):not(.uwaw)').forEach(audio => {
+            audio.play();
+            audio.removeAttribute('data-was-playing');
+        });
+        document.documentElement.classList.remove(prefix + "invert-colors");
+        fontSizeCount = 0;
+        lineHeightCount = 0;
+        textSpacingCount = 0;
+        saturateCount = 0;
+        screenReader = !1;
+
+        // Reset all widget UI feature buttons (remove purple active border)
+        document.querySelectorAll('.reset-feature, [id^="featureItem"]').forEach(item => {
+            item.classList.remove(prefix + 'feature-active');
+        });
+
+        // Hide all tick icons (checkmarks) across the widget
+        document.querySelectorAll('.reset-tick, [id^="tickIcon"]').forEach(tick => {
+            tick.style.display = 'none';
+        });
+
+        // Reset all feature step indicator bars
+        document.querySelectorAll('.reset-steps, [id^="featureSteps"]').forEach(steps => {
+            steps.classList.remove(prefix + 'featureSteps-visible');
+            steps.querySelectorAll('.step, .uwaw-features__step').forEach(step => {
+                step.classList.remove(prefix + 'active');
+            });
+        });
+
+        // Reset Saturation texts and icons back to default (0 - "Saturation")
+        for (let i = 0; i <= 3; i++) {
+            const iconEl = document.getElementById(`saturate-text-${i}`);
+            const textEl = document.getElementById(`saturate-detail-text-${i}`);
+            if (iconEl) iconEl.style.display = i === 0 ? 'inline-block' : 'none';
+            if (textEl) textEl.style.display = i === 0 ? 'inline-block' : 'none';
+        }
+
+        // Disable smaller text button since font size is back to 0
+        const smallerTextBtn = document.getElementById('btn-s17');
+        if (smallerTextBtn) smallerTextBtn.disabled = true;
+
+        if (typeof fontSizeSpans !== 'undefined' && fontSizeSpans) {
+            fontSizeSpans.forEach(span => span.classList.remove(prefix + 'active'));
+        }
+        if (typeof lineHeightSpans !== 'undefined' && lineHeightSpans) {
+            lineHeightSpans.forEach(span => span.classList.remove(prefix + 'active'));
+        }
+        if (typeof textSpacingSpans !== 'undefined' && textSpacingSpans) {
+            textSpacingSpans.forEach(span => span.classList.remove(prefix + 'active'));
+        }
+
+        saveSettings();
+        const checkboxes = document.querySelectorAll('.uwaw input[type="checkbox"]');
+        checkboxes.forEach(checkbox => checkbox.checked = !1);
+        document.querySelectorAll('.font-size-visible, .line-height-visible, .text-spacing-visible').forEach(el => el.classList.remove(prefix + 'span-visible'))
+        readingMask.classList.add('mask-hidden');
+        readingMask.classList.remove('mask-visible');
+    }
+
+    onReady(function () {
+        const resetBtn = document.getElementById('reset-all');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', resetSettings)
+        }
+    });
+
+    function getCookie(name) {
+        const value = "; " + document.cookie;
+        const parts = value.split("; " + name + "=");
+        if (parts.length === 2) return decodeURIComponent(parts.pop().split(";").shift());
+    }
+
+    function saveSettings() {
+        const settings = {
+            screenReader: screenReader,
+            fontSizeCount: Math.max(0, fontSizeCount > 0 ? fontSizeCount - 1 : 0),
+            lineHeightCount: Math.max(0, lineHeightCount > 0 ? lineHeightCount - 1 : 0),
+            textSpacingCount: Math.max(0, textSpacingCount > 0 ? textSpacingCount - 1 : 0),
+            saturateCount: saturateCount,
+            highlightLinks: document.body.classList.contains(prefix + 'highlight-links'),
+            dyslexiaMode: document.body.classList.contains(prefix + 'dyslexia-mode'),
+            hideImages: document.body.classList.contains(prefix + 'hide-images'),
+            darkMode: document.body.classList.contains(prefix + 'dark-mode'),
+            cursorChanged: document.body.classList.contains(prefix + 'custom-cursor'),
+            invert: document.documentElement.classList.contains(prefix + 'invert-colors'),
+            adhdFriendly: document.body.classList.contains(prefix + 'adhd-saturate'),
+            pauseAnimation: document.body.classList.contains(prefix + 'animation-pause'),
+        };
+
+        const jsonStr = JSON.stringify(settings);
+        const expiryDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString(); // 30 days
+
+        const cookieDomain = getCookieDomain();
+
+        if (location.protocol === 'https:') {
+            if (cookieDomain) {
+                document.cookie = `accessibilitySettings=${encodeURIComponent(jsonStr)}; expires=${expiryDate}; path=/; domain=${cookieDomain}; SameSite=Strict; Secure`;
+            } else {
+                document.cookie = `accessibilitySettings=${encodeURIComponent(jsonStr)}; expires=${expiryDate}; path=/; SameSite=Strict; Secure`;
+            }
+        } else {
+            if (cookieDomain) {
+                document.cookie = `accessibilitySettings=${encodeURIComponent(jsonStr)}; expires=${expiryDate}; path=/; domain=${cookieDomain}`;
+            } else {
+                document.cookie = `accessibilitySettings=${encodeURIComponent(jsonStr)}; expires=${expiryDate}; path=/`;
+            }
+        }
+    }
+
+    function updateWidgetToggles(settings) {
+        const speakOn = document.getElementById('tickIcon_sp');
+        if (speakOn) {
+            speakOn.style.display = settings.screenReader ? 'inline-flex' : 'none'
+        }
+        const highlightToggle = document.getElementById('tickIcon-ht');
+        if (highlightToggle) {
+            highlightToggle.style.display = settings.highlightLinks ? 'inline-flex' : 'none'
+        }
+        const darkModeToggle = document.getElementById('tickIcon-ht-dark');
+        if (darkModeToggle) {
+            darkModeToggle.style.display = settings.darkMode ? 'inline-flex' : 'none'
+        }
+        const invertToggle = document.getElementById('tickIcon-ic');
+        if (invertToggle) {
+            invertToggle.style.display = settings.invert ? 'inline-flex' : 'none'
+        }
+        const dyslexiaToggle = document.getElementById('tickIcon-df');
+        if (dyslexiaToggle) {
+            dyslexiaToggle.style.display = settings.dyslexiaMode ? 'inline-flex' : 'none'
+        }
+        const adhdToggle = document.getElementById('tickIcon-adhd');
+        if (adhdToggle) {
+            adhdToggle.style.display = settings.adhdFriendly ? 'inline-flex' : 'none'
+        }
+        const hideImagesToggle = document.getElementById('tickIcon-hi');
+        if (hideImagesToggle) {
+            hideImagesToggle.style.display = settings.hideImages ? 'inline-flex' : 'none'
+        }
+        const cursorToggle = document.getElementById('tickIcon-cursor');
+        if (cursorToggle) {
+            cursorToggle.style.display = settings.cursorChanged ? 'inline-flex' : 'none'
+        }
+        const saturateToggle = document.getElementById('tickIcon-saturate');
+        if (saturateToggle) {
+            saturateToggle.style.display = settings.saturateCount > 0 ? 'inline-flex' : 'none'
+        }
+
+        const animationToggle = document.getElementById('tickIcon-animate');
+        if (animationToggle) {
+            animationToggle.style.display = settings.pauseAnimation ? 'inline-flex' : 'none'
+        }
+    }
+
+    function loadSettings() {
+        let settings = getCookie(SETTINGS_KEY);
+        if (!settings) {
+            settings = getCookie(SETTINGS_KEY);
+        }
+        if (settings) {
+            settings = JSON.parse(settings);
+            fontSizeCount = settings.fontSizeCount || 0;
+            lineHeightCount = Math.min(settings.lineHeightCount || 0, 3);
+            textSpacingCount = settings.textSpacingCount || 0;
+            saturateCount = settings.saturateCount || 0;
+            if (settings.screenReader) {
+                screenReader = settings.screenReader;
+                const button = document.getElementById('featureItem_sp');
+                button.classList.add(prefix + 'feature-active')
+            } else {
+                const button = document.getElementById('featureItem_sp');
+                button.classList.remove(prefix + 'feature-active')
+            }
+            if (settings.highlightLinks) {
+                document.body.classList.add(prefix + 'highlight-links');
+                const button = document.getElementById('featureItem-ht');
+                button.classList.add(prefix + 'feature-active')
+            } else {
+                const button = document.getElementById('featureItem-ht');
+                button.classList.remove(prefix + 'feature-active')
+            }
+            if (settings.dyslexiaMode) {
+                document.body.classList.add(prefix + 'dyslexia-mode');
+                const button = document.getElementById('featureItem-df');
+                button.classList.add(prefix + 'feature-active')
+            } else {
+                const button = document.getElementById('featureItem-df');
+                button.classList.remove(prefix + 'feature-active')
+            }
+            if (settings.hideImages) {
+                document.body.classList.add(prefix + 'hide-images');
+                const button = document.getElementById('featureItem-hi');
+                button.classList.add(prefix + 'feature-active')
+            } else {
+                const button = document.getElementById('featureItem-hi');
+                button.classList.remove(prefix + 'feature-active')
+            }
+            if (settings.darkMode) {
+                document.body.classList.add(prefix + 'dark-mode');
+                const button = document.getElementById('featureItem-ht-dark');
+                button.classList.add(prefix + 'feature-active')
+            } else {
+                const button = document.getElementById('featureItem-ht-dark');
+                button.classList.remove(prefix + 'feature-active')
+            }
+            if (settings.invert) {
+                document.documentElement.classList.toggle(prefix + "invert-colors");
+                const button = document.getElementById('featureItem-ic');
+                button.classList.add(prefix + 'feature-active')
+            } else {
+                const button = document.getElementById('featureItem-ic');
+                button.classList.remove(prefix + 'feature-active')
+            }
+            if (settings.cursorChanged) {
+                document.body.classList.add(prefix + 'custom-cursor');
+                const button = document.getElementById('featureItem-Cursor');
+                button.classList.add(prefix + 'feature-active')
+            } else {
+                const button = document.getElementById('featureItem-Cursor');
+                button.classList.remove(prefix + 'feature-active')
+            }
+            if (settings.adhdFriendly) {
+                toggleADHDFriendlyMode();
+                readingMask.classList.remove('mask-hidden');
+                const button = document.getElementById('featureItem-adhd');
+                button.classList.add(prefix + 'feature-active');
+            }
+            else {
+                readingMask.classList.add('mask-hidden');
+                const button = document.getElementById('featureItem-adhd');
+                button.classList.remove(prefix + 'feature-active');
+            }
+
+            applyTextSettings()
+
+            if (lineHeightCount > 0) {
+                updateLineHeight();
+            }
+
+            if (textSpacingCount > 0) {
+                updateLetterSpacing();
+            }
+
+            if (saturateCount > 0) {
+                const button = document.getElementById('featureItem-saturate');
+                button.classList.add(prefix + 'feature-active');
+
+                if (saturateCount === 1) {
+                    document.documentElement.classList.add(prefix + 'saturate-low');
+                } else if (saturateCount === 2) {
+                    document.documentElement.classList.add(prefix + 'saturate-high');
+                } else if (saturateCount === 3) {
+                    document.documentElement.classList.add(prefix + 'saturate-desaturate');
+                }
+
+                for (let i = 0; i <= 3; i++) {
+                    const textElement = document.getElementById(`saturate-text-${i}`);
+                    const detailTextElement = document.getElementById(`saturate-detail-text-${i}`);
+                    if (textElement) {
+                        textElement.style.display = i === saturateCount ? 'inline' : 'none';
+                    }
+                    if (detailTextElement) {
+                        detailTextElement.style.display = i === saturateCount ? 'inline' : 'none';
+                    }
+                }
+
+                const saturateCheck = document.getElementById('featureStepsSaturate');
+                saturateCheck.classList.add(prefix + 'featureSteps-visible');
+                saturateSpans.forEach((span, index) => {
+                    if (index <= saturateCount - 1) {
+                        span.classList.add(prefix + 'active');
+                    }
+                });
+            }
+            else {
+                const button = document.getElementById('featureItem-saturate');
+                button.classList.remove(prefix + 'feature-active');
+                document.documentElement.classList.remove(prefix + 'saturate-low');
+                document.documentElement.classList.remove(prefix + 'saturate-high');
+                document.documentElement.classList.remove(prefix + 'saturate-desaturate');
+                const saturateCheck = document.getElementById('featureStepsSaturate');
+                saturateCheck.classList.remove(prefix + 'featureSteps-visible');
+                saturateSpans.forEach((span, index) => {
+                    if (index <= saturateCount - 1) {
+                        span.classList.remove(prefix + 'active');
+                    }
+                });
+
+            }
+
+            if (settings.pauseAnimation) {
+                const button = document.getElementById('featureItem-animate');
+                const tickIcon = document.getElementById('tickIcon-animate');
+
+                if (button) button.classList.add(prefix + 'feature-active');
+                if (tickIcon) tickIcon.style.display = 'inline-flex';
+
+                document.body.classList.add(prefix + 'animation-pause');
+
+                // Delay slightly to let media finish initializing before pausing
+                setTimeout(() => {
+                    document.querySelectorAll('video:not(.uwaw video):not(.uwaw)').forEach(video => {
+                        video.setAttribute('data-was-playing', 'true');
+                        video.pause();
+                    });
+
+                    document.querySelectorAll('audio:not(.uwaw audio):not(.uwaw)').forEach(audio => {
+                        audio.setAttribute('data-was-playing', 'true');
+                        audio.pause();
+                    });
+                }, 300);
+            } else {
+                const button = document.getElementById('featureItem-animate');
+                const tickIcon = document.getElementById('tickIcon-animate');
+
+                if (button) button.classList.remove(prefix + 'feature-active');
+                if (tickIcon) tickIcon.style.display = 'none';
+            }
+            updateWidgetToggles(settings)
+        }
+    }
+
+    const modal = document.getElementById("uw-main");
+
+    document.addEventListener("keydown", function (e) {
+        if (e.ctrlKey && e.key === "F2") {
+            e.preventDefault();
+            const currentRight = window.getComputedStyle(modal).right;
+            if (currentRight === "0px") {
+                modal.style.right = "-530px";
+            } else {
+                modal.style.right = "0";
+            }
+        }
+    });
+
+    function handleRouteChange() {
+        let currentPath = window.location.pathname;
+        if (currentPath !== lastPath) {
+            lastPath = currentPath;
+            hasMovedMouse = false;
+            lastSpokenNode = null;
+            lastSpokenText = '';
+            clearTimeout(ttsHoverTimer);
+            if (speechSynthesisInstance) {
+                speechSynthesisInstance.cancel();
+            }
+
+            const settingsStr = getCookie(SETTINGS_KEY);
+            if (settingsStr) {
+                const settings = JSON.parse(settingsStr);
+
+                if (settings.adhdFriendly && !adhdActive) {
+                    toggleADHDFriendlyMode();
+                }
+
+                if (settings.lineHeightCount && settings.lineHeightCount > 0) {
+                    lineHeightCount = Math.min(settings.lineHeightCount + 1, 3);
+                    updateLineHeight();
+                }
+
+                if (settings.textSpacingCount && settings.textSpacingCount > 0) {
+                    textSpacingCount = settings.textSpacingCount + 1;
+                    updateLetterSpacing();
+                }
+            }
+        }
+    }
+
+    const _origPushState = history.pushState;
+    if (_origPushState) {
+        history.pushState = function () {
+            _origPushState.apply(this, arguments);
+            handleRouteChange();
+        };
+    }
+    const _origReplaceState = history.replaceState;
+    if (_origReplaceState) {
+        history.replaceState = function () {
+            _origReplaceState.apply(this, arguments);
+            handleRouteChange();
+        };
+    }
+    window.addEventListener("popstate", handleRouteChange);
+    setInterval(handleRouteChange, 250);
+})()
+
+window.addEventListener("load", function () {
+    document.body.classList.remove("accessibility-loading");
+});
+
+function hideBackgroundImages() {
+    if (!document.body.classList.contains('ux4g-accessibility-hide-images')) return;
+
+    document.querySelectorAll('*:not(#uw-main):not(#uw-main *):not(.reading-mask-horizontal)')
+        .forEach(el => {
+            const bgImage = getComputedStyle(el).backgroundImage;
+            if (bgImage.includes('url(')) {
+                el.dataset.origBgImage = bgImage;
+                el.style.setProperty('background-image', 'none', 'important');
+            }
+        });
+}
+
+function restoreBackgroundImages() {
+    document.querySelectorAll('[data-orig-bg-image]').forEach(el => {
+        el.style.backgroundImage = el.dataset.origBgImage;
+        delete el.dataset.origBgImage;
+    });
+}
+
+function toggleBackgroundImageHiding() {
+    if (document.body.classList.contains('ux4g-accessibility-hide-images')) {
+        hideBackgroundImages();
+    } else {
+        restoreBackgroundImages();
+    }
+}
+
+onReady(function () {
+    hideBackgroundImages();
+
+    if (document.body) {
+        new MutationObserver(mutations => {
+            if (mutations.some(m => m.attributeName === 'class')) {
+                toggleBackgroundImageHiding();
+            }
+        }).observe(document.body, { attributes: true });
+    }
+});
+
+// UX4G accessibility widget usage tracking
+(function () {
+    'use strict';
+
+    var payload = JSON.stringify({
+        pathname: window.location.pathname,
+        url: window.location.href,
+        widgetVersion: 'tools'
+    });
+
+    if (navigator.sendBeacon) {
+        navigator.sendBeacon('https://www.ux4g.gov.in/docsapi/track', new Blob([payload], { type: 'application/json' }));
+    } else {
+        fetch('https://www.ux4g.gov.in/docsapi/track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true
+        }).catch(function () {});
+    }
+})();
