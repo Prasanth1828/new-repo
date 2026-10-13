@@ -310,12 +310,29 @@ function onReady(fn) {
     function speakText(text) {
         // Guard against null, undefined, or empty text
         if (!text || !text.trim()) return;
-        // Clean multiple whitespace, tabs, line breaks, and punctuation (commas, colons, etc.) so TTS never pronounces punctuation words
-        const cleanText = text
-            .replace(/,/g, ' ')
+
+        let cleanText = text;
+
+        // Condition 1: Check if number is present
+        const hasNumber = /\d/.test(cleanText);
+        // Condition 2: If number is present, check if rupees is in front of it
+        const hasRupeesBeforeNumber = /(?:₹|Rs\.?|INR|Rupees?)\s*[\d,]+/i.test(cleanText);
+
+        if (hasNumber && hasRupeesBeforeNumber) {
+            // If rupees, remove commas inside the number using regex so it reads full amount
+            cleanText = cleanText.replace(/(\d+),(?=\d)/g, '$1');
+            cleanText = cleanText.replace(/₹\s*/g, 'Rupees ');
+        } else {
+            // Old flow
+            cleanText = cleanText.replace(/,/g, ' ');
+        }
+
+        // Clean punctuation and whitespace
+        cleanText = cleanText
             .replace(/[;:|/\\_]/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
+
         if (!cleanText) return;
         const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = "en-US";
@@ -559,7 +576,76 @@ function onReady(fn) {
         if (className.includes('youtube') || href.includes('youtube.com')) return 'YouTube';
         if (className.includes('linkedin') || href.includes('linkedin.com')) return 'LinkedIn';
 
+        // 6. Generic Fallback: Clean and humanize technical button id, name, or testid
+        const rawBtnName = btnEl.getAttribute('name') || btnEl.id || btnEl.getAttribute('data-testid') || '';
+        if (rawBtnName) {
+            const humanized = humanizeCodeName(rawBtnName);
+            if (humanized) return humanized;
+        }
+
         return '';
+    }
+
+    // Generic futuristic helper to convert technical code identifiers (e.g. ts_min_value, btn_submit_otp) into natural human UI labels
+    function humanizeCodeName(raw) {
+        if (!raw || typeof raw !== 'string') return '';
+        return raw
+            // Remove common technical code prefixes (ts_, txt_, id_, input_, btn_, chk_, lbl_)
+            .replace(/^(?:ts|txt|id|input|chk|btn|lbl)_+/i, '')
+            // Remove common technical code suffixes (_value, _val, _input, _txt, _btn)
+            .replace(/_+(?:value|val|input|txt|btn)$/i, '')
+            // Split camelCase words (e.g. accountHolderName -> account Holder Name)
+            .replace(/([a-z])([A-Z])/g, '$1 $2')
+            // Replace underscores and hyphens with spaces
+            .replace(/[_\-]+/g, ' ')
+            .trim()
+            // Capitalize first letter of each word
+            .replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    // Helper function to resolve exact text for selectable cards (MuiCard, rewards-mui-card, Goal Cards, Deposit Tenure Cards)
+    function resolveSelectableCardText(cardEl) {
+        if (!cardEl) return '';
+
+        const langDisplayEl = cardEl.querySelector('.mui-card__language-display, .rewards-mui-card__language-display');
+        const langNameEl = cardEl.querySelector('.mui-card__language-name, .rewards-mui-card__language-name');
+        const goalNameEl = cardEl.querySelector('.mui-card__goal-name, .rewards-mui-card__goal-name');
+
+        // Extract badge / preferred text (e.g. "MOST PREFERRED", "FAVOURITE") if present
+        const preferredEl = cardEl.querySelector('.fixedDeposit__preferred-text');
+        let badgeText = '';
+        if (preferredEl) {
+            const clone = preferredEl.cloneNode(true);
+            clone.querySelectorAll('svg, .fireicon, .favicon, [class*="icon"]').forEach(el => el.remove());
+            badgeText = clone.textContent?.replace(/\s+/g, ' ').trim() || '';
+        }
+
+        const langDisplay = langDisplayEl?.textContent?.trim() || '';
+        // If langNameEl itself contains the preferred badge (e.g. in StartDeposit), ignore it as langName to avoid duplicate/emoji speech
+        const langName = (langNameEl && !langNameEl.querySelector('.fixedDeposit__preferred-text'))
+            ? (langNameEl.textContent?.trim() || '')
+            : '';
+        const goalName = goalNameEl?.textContent?.trim() || '';
+
+        let cardContent = '';
+        if (langDisplay && langName && langDisplay !== langName) {
+            cardContent = `${langDisplay} ${langName}`;
+        } else if (langDisplay || langName) {
+            cardContent = langDisplay || langName;
+        }
+
+        if (goalName) {
+            cardContent = cardContent ? `${cardContent} ${goalName}` : goalName;
+        }
+
+        // Avoid repeating if cardContent already contains badgeText
+        if (badgeText && cardContent && cardContent.toLowerCase().includes(badgeText.toLowerCase())) {
+            return cardContent;
+        }
+
+        // Natural DOM & Visual Order: Content first (e.g. '444 Days 8.50 %'), then badge (e.g. 'MOST PREFERRED')
+        const fullCardText = [cardContent, badgeText].filter(Boolean).join(' ');
+        return fullCardText.replace(/\s+/g, ' ').trim();
     }
 
     // Helper function to resolve accessible text, role, and label for any hovered or interacted element
@@ -569,9 +655,8 @@ function onReady(fn) {
             return null;
         }
 
-        // Exclude modal backdrops, dialog wrappers, and whole page containers
-        if (target.matches('.MuiDialog-container, .MuiBackdrop-root, .MuiModal-root, .MuiDialog-root, .modal-backdrop, .tc-container, [role="dialog"], [role="document"], form, section, main, article, nav, header, footer')
-            || target.matches('.registration, .registration-wrapper, .col-1, .login-page, .login-wrapper, .MuiGrid-container, .MuiGrid-root, .MuiBox-root, .MuiContainer-root, .MuiPaper-root:not(.mui-card), #root, body, html')) {
+        // Exclude modal backdrops, dialog overlays, and full page background roots
+        if (target.matches('#root, body, html, .MuiBackdrop-root, .modal-backdrop, .MuiDialog-container, .MuiModal-root, main, header, footer, nav, form, .login-page, .registration-wrapper')) {
             return null;
         }
 
@@ -582,10 +667,10 @@ function onReady(fn) {
         if (checkboxEl) {
             // Determine if the checkbox acts as a switch toggle
             const isSwitch = checkboxEl.getAttribute('role') === 'switch' || checkboxEl.closest('.mui-switch, .MuiSwitch-root');
-            // Locate the associated label from parent containers or explicit attributes
-            const parentLabel = checkboxEl.closest('.MuiFormControlLabel-root, label');
-            const labelText = parentLabel?.querySelector('.MuiFormControlLabel-label')?.textContent
-                || parentLabel?.textContent
+            // Locate the associated label from parent containers, adjacent tnc labels, or explicit attributes
+            const parentLabel = checkboxEl.closest('.MuiFormControlLabel-root, label, [class*="tnc-label"], [class*="checkbox-container"]');
+            const labelText = parentLabel?.querySelector('.MuiFormControlLabel-label, [class*="tnc-content"], [class*="label"]:not(input)')?.textContent
+                || (parentLabel && parentLabel !== checkboxEl.parentElement ? parentLabel.textContent : '')
                 || checkboxEl.getAttribute('aria-label')
                 || (checkboxEl.id ? document.querySelector(`label[for="${checkboxEl.id}"]`)?.textContent : '')
                 || '';
@@ -646,13 +731,46 @@ function onReady(fn) {
             : target.closest('.MuiInputBase-root')?.querySelector('input, textarea');
         if (inputEl && inputEl.type !== 'checkbox' && inputEl.type !== 'radio' && inputEl.type !== 'hidden') {
             const formControl = inputEl.closest('.MuiFormControl-root, .mui-text-field, .MuiTextField-root, .phoneNumberTextfield');
-            const labelText = formControl?.querySelector('.MuiFormLabel-root, .MuiInputLabel-root, label')?.textContent
+            let labelText = formControl?.querySelector('.MuiFormLabel-root, .MuiInputLabel-root, label')?.textContent
                 || inputEl.getAttribute('aria-label')
                 || (inputEl.id ? document.querySelector(`label[for="${inputEl.id}"]`)?.textContent : '')
-                || inputEl.placeholder
-                || inputEl.name
-                || '';
-            const cleanLabel = labelText.replace(/\s+/g, ' ').trim();
+                || inputEl.placeholder;
+
+            // If no standard label, search for adjacent visual label in the DOM (previous sibling element or container heading)
+            if (!labelText) {
+                const container = formControl || inputEl;
+                let prev = container.previousElementSibling;
+                while (prev) {
+                    if (!['SCRIPT', 'STYLE', 'SVG', 'INPUT', 'BUTTON'].includes(prev.tagName)) {
+                        const siblingText = (prev.innerText || prev.textContent || '').replace(/[₹$€£]/g, '').trim();
+                        if (siblingText && siblingText.length <= 40) {
+                            labelText = siblingText;
+                            break;
+                        }
+                    }
+                    prev = prev.previousElementSibling;
+                }
+
+                if (!labelText) {
+                    const parent = container.parentElement;
+                    if (parent) {
+                        const heading = parent.querySelector('.profile__sub-head, [class*="label"]:not(form), [class*="title"], [class*="heading"], h1, h2, h3, h4, h5, h6');
+                        if (heading && !heading.contains(inputEl)) {
+                            const headingText = (heading.innerText || heading.textContent || '').replace(/[₹$€£]/g, '').trim();
+                            if (headingText && headingText.length <= 50) {
+                                labelText = headingText;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Generic fallback: Humanize technical code name or ID (e.g. ts_min_value -> Min, ts_max_value -> Max)
+            if (!labelText) {
+                labelText = humanizeCodeName(inputEl.name || inputEl.id || '');
+            }
+
+            const cleanLabel = (labelText || '').replace(/\s+/g, ' ').trim();
             if (cleanLabel) {
                 return {
                     node: formControl || inputEl,
@@ -661,7 +779,27 @@ function onReady(fn) {
             }
         }
 
-        // 5. Handle Buttons and Links - Read exact visible button text or intelligent icon name
+        // 5. Handle Informational Notes, Alerts, T&C, and Consent Declarations (e.g. note-container, alert-info, tnc-content, tnc-label, etc.)
+        const noteEl = target.closest('[class*="note-container"], [class*="alert-info"], [class*="desc-note"], [class*="alert-box"], [class*="info-box"], [class*="tnc-content"], [class*="tnc-label"], [class*="consent"], [class*="disclaimer"], [class*="declaration"], [role="alert"], [role="note"], [class*="__note"]:not(input):not(textarea)');
+        if (noteEl) {
+            // If hovering directly on an actual action button inside an alert, let button handler deal with it
+            if (!target.closest('button, [role="button"]')) {
+                // Clone to safely remove decorative icons without altering DOM
+                const clone = noteEl.cloneNode(true);
+                clone.querySelectorAll('.material-symbols-outlined, .material-symbols-rounded, svg, [class*="note-icon"], [class*="icon"]').forEach(el => el.remove());
+                const noteText = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim();
+                const isDialogOrPolicyNote = Boolean(target.closest('.tc-container, [class*="tc-container"], .MuiDialog-root, [class*="tnc"], [class*="policy"], [class*="consent"]'));
+                const maxNoteLength = isDialogOrPolicyNote ? 5000 : 600;
+                if (noteText && noteText.length > 0 && noteText.length <= maxNoteLength) {
+                    return {
+                        node: noteEl,
+                        text: noteText
+                    };
+                }
+            }
+        }
+
+        // 6. Handle Buttons and Links - Read exact visible button text or intelligent icon name
         const btnEl = target.closest('button, [role="button"], a');
         if (btnEl) {
             const cleanText = resolveLinkOrButtonText(btnEl);
@@ -673,20 +811,10 @@ function onReady(fn) {
             }
         }
 
-        // 6. Handle Selectable Cards (e.g. Language Selection Cards, Goal Cards)
+        // 7. Handle Selectable Cards (e.g. Language Selection Cards, Goal Cards, Deposit Tenure Cards)
         const muiCardEl = target.closest('.mui-card, .rewards-mui-card');
         if (muiCardEl) {
-            const langDisplay = muiCardEl.querySelector('.mui-card__language-display')?.textContent?.trim();
-            const langName = muiCardEl.querySelector('.mui-card__language-name')?.textContent?.trim();
-            const goalName = muiCardEl.querySelector('.mui-card__goal-name')?.textContent?.trim();
-            let cardText = '';
-            if (langDisplay && langName && langDisplay !== langName) {
-                cardText = `${langDisplay} ${langName}`;
-            } else if (langDisplay || langName) {
-                cardText = langDisplay || langName;
-            } else if (goalName) {
-                cardText = goalName;
-            }
+            const cardText = resolveSelectableCardText(muiCardEl);
             if (cardText) {
                 return {
                     node: muiCardEl,
@@ -695,7 +823,7 @@ function onReady(fn) {
             }
         }
 
-        // 7. Handle Images
+        // 8. Handle Images
         if (target.tagName === 'IMG') {
             const altText = target.getAttribute('alt') || target.getAttribute('aria-label') || target.getAttribute('title');
             if (altText) {
@@ -706,28 +834,99 @@ function onReady(fn) {
             }
         }
 
-        // 8. Handle Standard UI Leaf Text Elements (Paragraphs, Headings, Spans, Labels, List Items, Table Cells, and pure leaf DIVs)
-        const CONTAINER_TAGS = ['FORM', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'NAV', 'MAIN', 'ASIDE', 'DIALOG', 'BODY', 'HTML', 'UL', 'OL', 'TABLE', 'TBODY', 'THEAD', 'TR'];
+        // 9. Handle Table Cells (TD) and Table Headers (TH / .tableKey__header)
+        const tableCellEl = target.closest('td, th, .tableKey__header');
+        if (tableCellEl) {
+            // Avoid reading whole cell if hovering directly on interactive children (actions menu, button, link)
+            if (!target.closest('.actionList, .download-dropdown, button, [role="button"]')) {
+                const cellText = (tableCellEl.innerText || tableCellEl.textContent || '').replace(/\s+/g, ' ').trim();
+                if (cellText && cellText.length > 0 && cellText.length <= 150) {
+                    return {
+                        node: tableCellEl,
+                        text: cellText
+                    };
+                }
+            }
+        }
+
+        // 10. Handle Standard UI Text Elements (Paragraphs, Headings, Spans, Labels, List Items, and pure leaf DIVs)
+        const CONTAINER_TAGS = ['FORM', 'SECTION', 'ARTICLE', 'HEADER', 'FOOTER', 'NAV', 'MAIN', 'ASIDE', 'DIALOG', 'BODY', 'HTML', 'TABLE', 'TBODY', 'THEAD', 'TR'];
         if (CONTAINER_TAGS.includes(target.tagName)) {
             return null;
         }
 
-        // If target has any child elements, it is a parent container, not a pure leaf element
-        if (target.childElementCount > 0) {
+        // Exclude standalone decorative icon font elements without explicit aria-label
+        if (target.matches('.material-symbols-outlined, .material-symbols-rounded, [class*="material-symbols"], svg') && !target.getAttribute('aria-label')) {
             return null;
         }
 
-        const TEXT_TAGS = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'LABEL', 'TH', 'TD', 'LI', 'B', 'STRONG', 'EM', 'SMALL', 'DIV'];
-        if (TEXT_TAGS.includes(target.tagName)) {
-            // Must NOT contain interactive elements inside (buttons, inputs, etc.)
-            if (target.querySelector('button, input, select, textarea, [role="button"], [role="dialog"], a')) {
+        // Resolve to the parent text sentence/block if hovering on an inline child (span, b, strong, em, u, etc.)
+        // 1. First check standard leaf block elements (LI, P, headings, labels)
+        const leafBlock = target.closest('li, p, h1, h2, h3, h4, h5, h6, label');
+
+        // 2. Only match Typography if it is a true leaf (not a container Typography with nested div/p like in MuiDialog)
+        const typoAncestor = target.closest('[class*="Typography"]');
+        const leafTypo = typoAncestor && !typoAncestor.querySelector('div, p, section, article, table, ul, ol') ? typoAncestor : null;
+
+        // 3. For leaf div/span key-value rows (e.g. Stop Cheque Number rows), resolve to the immediate leaf row container
+        let leafDiv = null;
+        if (!leafBlock && !leafTypo) {
+            const rowCandidate = target.closest('div');
+            if (rowCandidate && !rowCandidate.querySelector('div, p, h1, h2, h3, h4, h5, h6, ul, ol, li, table, form, section, article')) {
+                leafDiv = rowCandidate;
+            }
+        }
+
+        const textBlockEl = leafBlock || leafTypo || leafDiv || target;
+
+        // If the text block contains interactive controls or nested block containers, treat as a structural container (skip)
+        // For LI tags, allow nested lists (ol, ul) without discarding the LI; we extract direct LI text below
+        if (textBlockEl.tagName === 'LI') {
+            if (textBlockEl.querySelector('section, article, header, footer, nav, main, form, table, dialog, input, select, textarea, button, [role="button"], [role="dialog"]')) {
                 return null;
             }
-            const text = (target.innerText || target.textContent || '').replace(/\s+/g, ' ').trim();
-            // Read concise UI labels, titles, or single sentences (never whole long pages/articles)
-            if (text && text.length > 0 && text.length <= 120) {
+        } else {
+            if (textBlockEl.querySelector('section, article, header, footer, nav, main, form, table, ul, ol, dialog, input, select, textarea, button, [role="button"], [role="dialog"]')) {
+                return null;
+            }
+        }
+
+        // If target is a DIV or general element, make sure it does not contain nested block elements
+        if (['DIV', 'BOX'].includes(textBlockEl.tagName) && textBlockEl.childElementCount > 0 && textBlockEl.querySelector('div, p, h1, h2, h3, h4, h5, h6, ul, ol, li')) {
+            return null;
+        }
+
+        const TEXT_TAGS = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'SPAN', 'LABEL', 'TH', 'TD', 'LI', 'B', 'STRONG', 'EM', 'SMALL', 'DIV', 'U'];
+        if (TEXT_TAGS.includes(textBlockEl.tagName) || (typeof textBlockEl.className === 'string' && textBlockEl.className.includes('Typography'))) {
+            let rawText = '';
+            // For LI with nested sub-lists (ol/ul), clone and strip nested lists so only the parent point's text is read
+            if (textBlockEl.tagName === 'LI' && textBlockEl.querySelector('ul, ol')) {
+                const clone = textBlockEl.cloneNode(true);
+                clone.querySelectorAll('ul, ol').forEach(el => el.remove());
+                rawText = clone.innerText || clone.textContent || '';
+            } else {
+                rawText = textBlockEl.innerText || textBlockEl.textContent || '';
+            }
+
+            // If the element has decorative icons alongside text, remove icons so font ligatures are not spoken
+            if (textBlockEl.querySelector('.material-symbols-outlined, .material-symbols-rounded, [class*="material-symbols"], svg')) {
+                const clone = textBlockEl.cloneNode(true);
+                if (textBlockEl.tagName === 'LI') {
+                    clone.querySelectorAll('ul, ol').forEach(el => el.remove());
+                }
+                clone.querySelectorAll('.material-symbols-outlined, .material-symbols-rounded, [class*="material-symbols"], svg').forEach(el => el.remove());
+                rawText = clone.innerText || clone.textContent || '';
+            }
+            const text = rawText.replace(/\s+/g, ' ').trim();
+
+            // Check if element is within Terms & Conditions, Policies, Consent, or Dialog content
+            const isPolicyOrDialog = Boolean(target.closest('.tc-container, [class*="tc-container"], .MuiDialog-root, [class*="tnc"], [class*="policy"], [class*="consent"], [class*="declaration"], [class*="disclaimer"], .MuiAccordionDetails-root'));
+            const maxTextLength = isPolicyOrDialog ? 5000 : 450;
+
+            // Read concise UI labels (<= 450) or full policy/terms points (<= 5000 in dialogs/policies)
+            if (text && text.length > 0 && text.length <= maxTextLength) {
                 return {
-                    node: target,
+                    node: textBlockEl,
                     text: text
                 };
             }
@@ -788,20 +987,10 @@ function onReady(fn) {
             return;
         }
 
-        // If clicking a selectable card (e.g. Language Card), announce its name
+        // If clicking a selectable card (e.g. Language Card, Deposit Tenure Card), announce its name
         const clickedCard = element.closest('.mui-card, .rewards-mui-card');
         if (clickedCard) {
-            const langDisplay = clickedCard.querySelector('.mui-card__language-display')?.textContent?.trim();
-            const langName = clickedCard.querySelector('.mui-card__language-name')?.textContent?.trim();
-            const goalName = clickedCard.querySelector('.mui-card__goal-name')?.textContent?.trim();
-            let cardText = '';
-            if (langDisplay && langName && langDisplay !== langName) {
-                cardText = `${langDisplay} ${langName}`;
-            } else if (langDisplay || langName) {
-                cardText = langDisplay || langName;
-            } else if (goalName) {
-                cardText = goalName;
-            }
+            const cardText = resolveSelectableCardText(clickedCard);
             if (cardText && cardText !== lastSpokenText) {
                 lastSpokenNode = clickedCard;
                 lastSpokenText = cardText;
@@ -1313,12 +1502,72 @@ function onReady(fn) {
         }
     });
 
+    // --- JS Cursor Overlay for Big Cursor ---
+    const CURSOR_SVG = '<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="29.188px" height="43.625px" viewBox="0 0 29.188 43.625" enable-background="new 0 0 29.188 43.625" xml:space="preserve"><g><polygon fill="#FFFFFF" stroke="#D9DAD9" stroke-width="1.1406" stroke-miterlimit="10" points="2.8,4.549 26.847,19.902 16.964,22.701 24.239,37.749 18.278,42.017 9.741,30.724 1.138,35.809 "/><g><g><g><path fill="#212627" d="M29.175,21.155c0.071-0.613-0.165-1.253-0.635-1.573L2.165,0.258c-0.424-0.32-0.988-0.346-1.435-0.053C0.282,0.497,0,1.03,0,1.617v34.171c0,0.613,0.306,1.146,0.776,1.439c0.471,0.267,1.059,0.213,1.482-0.16l7.482-6.344l6.847,12.155c0.259,0.48,0.729,0.746,1.2,0.746c0.235,0,0.494-0.08,0.706-0.213l6.988-4.585c0.329-0.213,0.565-0.586,0.659-1.013c0.094-0.426,0.024-0.88-0.188-1.226l-6.376-11.382l8.611-2.745C28.705,22.274,29.105,21.768,29.175,21.155z M16.964,22.701c-0.424,0.133-0.776,0.506-0.941,0.96c-0.165,0.48-0.118,1.013,0.118,1.439l6.588,11.781l-4.541,2.985l-6.894-12.315c-0.212-0.373-0.541-0.64-0.941-0.72c-0.094-0.027-0.165-0.027-0.259-0.027c-0.306,0-0.588,0.107-0.847,0.32L2.8,32.59V4.549l21.599,15.806L16.964,22.701z"/></g></g></g></g></svg>';
+
+    let cursorOverlay = null;
+    let lastMouseX = -100;
+    let lastMouseY = -100;
+
+    function ensureCursorOverlay() {
+        if (!cursorOverlay) {
+            cursorOverlay = document.getElementById('ux4g-cursor-overlay');
+        }
+        if (!cursorOverlay) {
+            cursorOverlay = document.createElement('div');
+            cursorOverlay.id = 'ux4g-cursor-overlay';
+            cursorOverlay.innerHTML = CURSOR_SVG;
+            document.body.appendChild(cursorOverlay);
+        }
+        return cursorOverlay;
+    }
+
+    function showCursorOverlay() {
+        const el = ensureCursorOverlay();
+        if (lastMouseX >= 0 && lastMouseY >= 0) {
+            el.style.transform = 'translate(' + lastMouseX + 'px, ' + lastMouseY + 'px)';
+        }
+        el.style.display = 'block';
+    }
+
+    function hideCursorOverlay() {
+        const el = ensureCursorOverlay();
+        el.style.display = 'none';
+    }
+
+    document.addEventListener('mousemove', function (e) {
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        if (document.body.classList.contains(prefix + 'custom-cursor')) {
+            const el = ensureCursorOverlay();
+            el.style.display = 'block';
+            el.style.transform = 'translate(' + e.clientX + 'px, ' + e.clientY + 'px)';
+        }
+    });
+
+    // Hide overlay when mouse leaves the window
+    document.addEventListener('mouseleave', function () {
+        if (cursorOverlay) cursorOverlay.style.display = 'none';
+    });
+    document.addEventListener('mouseenter', function () {
+        if (document.body.classList.contains(prefix + 'custom-cursor') && cursorOverlay) {
+            cursorOverlay.style.display = 'block';
+        }
+    });
+
     function changeCursor() {
         const button = document.getElementById('featureItem-Cursor');
         const tickIcon = document.getElementById('tickIcon-cursor');
         button.classList.toggle(prefix + 'feature-active');
         tickIcon.style.display = tickIcon.style.display === 'inline-flex' ? 'none' : 'inline-flex';
         document.body.classList.toggle(prefix + 'custom-cursor');
+        document.documentElement.classList.toggle(prefix + 'custom-cursor');
+
+        if (document.body.classList.contains(prefix + 'custom-cursor')) {
+            showCursorOverlay();
+        } else {
+            hideCursorOverlay();
+        }
         saveSettings()
     }
     onReady(function () {
@@ -1561,6 +1810,8 @@ function onReady(fn) {
 
         adhdActive = false;
         document.body.classList.remove(prefix + "dark-mode", prefix + "custom-cursor", prefix + "dyslexia-mode", prefix + "highlight-links", prefix + "hide-images", prefix + "animation-pause", prefix + 'saturate-low', prefix + 'saturate-high', prefix + 'saturate-desaturate', prefix + 'adhd-saturate', prefix + 'text-spacing');
+        document.documentElement.classList.remove(prefix + "custom-cursor");
+        hideCursorOverlay();
         document.querySelectorAll('video[data-was-playing="true"]:not(.uwaw video):not(.uwaw)').forEach(video => {
             video.play();
             video.removeAttribute('data-was-playing');
@@ -1780,11 +2031,16 @@ function onReady(fn) {
             }
             if (settings.cursorChanged) {
                 document.body.classList.add(prefix + 'custom-cursor');
+                document.documentElement.classList.add(prefix + 'custom-cursor');
                 const button = document.getElementById('featureItem-Cursor');
-                button.classList.add(prefix + 'feature-active')
+                if (button) button.classList.add(prefix + 'feature-active');
+                showCursorOverlay();
             } else {
+                document.body.classList.remove(prefix + 'custom-cursor');
+                document.documentElement.classList.remove(prefix + 'custom-cursor');
                 const button = document.getElementById('featureItem-Cursor');
-                button.classList.remove(prefix + 'feature-active')
+                if (button) button.classList.remove(prefix + 'feature-active');
+                hideCursorOverlay();
             }
             if (settings.adhdFriendly) {
                 toggleADHDFriendlyMode();
@@ -2018,9 +2274,7 @@ onReady(function () {
     }
 })();
 
-============================================================================================================================
-
-
+==================================================
 @font-face {
   font-family: 'Open-Dyslexic';
   font-style: normal;
@@ -3028,10 +3282,32 @@ body[data-gr-ext-installed] {
   background-image: none !important;
 } */
 
-/* Apply custom cursor to everything except #uw-main */
+/* Apply custom cursor - hide native cursor, JS overlay handles the visual */
+html.ux4g-accessibility-custom-cursor,
+html.ux4g-accessibility-custom-cursor *,
 .ux4g-accessibility-custom-cursor,
 .ux4g-accessibility-custom-cursor * {
-  cursor: url('data:image/svg+xml,<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" width="29.188px" height="43.625px" viewBox="0 0 29.188 43.625" enable-background="new 0 0 29.188 43.625" xml:space="preserve"><g><polygon fill="%23FFFFFF" stroke="%23D9DAD9" stroke-width="1.1406" stroke-miterlimit="10" points="2.8,4.549 26.847,19.902 16.964,22.701 24.239,37.749 18.278,42.017 9.741,30.724 1.138,35.809 "/><g><g><g><path fill="%23212627" d="M29.175,21.155c0.071-0.613-0.165-1.253-0.635-1.573L2.165,0.258c-0.424-0.32-0.988-0.346-1.435-0.053C0.282,0.497,0,1.03,0,1.617v34.171c0,0.613,0.306,1.146,0.776,1.439c0.471,0.267,1.059,0.213,1.482-0.16l7.482-6.344l6.847,12.155c0.259,0.48,0.729,0.746,1.2,0.746c0.235,0,0.494-0.08,0.706-0.213l6.988-4.585c0.329-0.213,0.565-0.586,0.659-1.013c0.094-0.426,0.024-0.88-0.188-1.226l-6.376-11.382l8.611-2.745C28.705,22.274,29.105,21.768,29.175,21.155z M16.964,22.701c-0.424,0.133-0.776,0.506-0.941,0.96c-0.165,0.48-0.118,1.013,0.118,1.439l6.588,11.781l-4.541,2.985l-6.894-12.315c-0.212-0.373-0.541-0.64-0.941-0.72c-0.094-0.027-0.165-0.027-0.259-0.027c-0.306,0-0.588,0.107-0.847,0.32L2.8,32.59V4.549l21.599,15.806L16.964,22.701z"/></g></g></g></g></svg>') 10 10, auto !important;
+  cursor: none !important;
+}
+
+/* JS-driven cursor overlay element */
+#ux4g-cursor-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 29px !important;
+  height: 44px !important;
+  pointer-events: none !important;
+  z-index: 2147483647 !important;
+  display: none;
+  will-change: transform;
+
+  svg {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    pointer-events: none !important;
+  }
 }
 
 .span-visible {
@@ -3426,361 +3702,21 @@ body.accessibility-loading {
     white-space: nowrap !important;
   }
 }
-========================================================================================================================================
-captch.js 
-import React, { useState, useEffect } from "react";
-import Box from "@mui/material/Box";
-import PropTypes from "prop-types";
-import { Button } from "@mui/material";
-import RefreshOutlinedIcon from "@mui/icons-material/RefreshOutlined";
-import VolumeUpOutlinedIcon from "@mui/icons-material/VolumeUpOutlined";
-import MuiTextField from "../MuiTextField/index";
-import "./styles.scss";
-import TextFormatter from "../TextFormatter";
-import useSpeech from "../../hooks/useSpeech";
+======================================================
+  label {
+        color: var(--palette-primary-primary2Tint20neutralLightest);
+        line-height: 1.5 !important;
 
-const Captcha = (props) => {
-  const {
-    onInputCaptcha,
-    captchaErr,
-    errorRefresh,
-    loaclCapchaError,
-    onresetError,
-    captchaImage,
-    captchaCode = "11111",
-    reloadCaptcha,
-  } = props;
-
-  const [input, setInput] = useState("");
-  // eslint-disable-next-line no-unused-vars
-  const [captchaError, setCaptchaError] = useState(false);
-
-  const { speak, stop, isSpeaking } = useSpeech({ rate: 0.8 });
-
-  const allowedAlphaNumeric = (data) => /^[A-Za-z0-9]+$/.test(data);
-
-  useEffect(() => {
-    if (errorRefresh) {
-      setCaptchaError(errorRefresh);
-    }
-    if (loaclCapchaError) {
-      setCaptchaError(loaclCapchaError);
-      onresetError(false);
-    }
-  }, [errorRefresh, loaclCapchaError, onresetError]);
-
-  const handleInputValueByUser = (e) => {
-    if (allowedAlphaNumeric(e) || !e) {
-      setInput(e);
-      onInputCaptcha(e);
-    }
-  };
-
-  const handleReadCaptcha = () => {
-    if (isSpeaking) {
-      stop();
-      return;
-    }
-
-    const codeToSpeak = captchaCode || "11111";
-    const formattedText = String(codeToSpeak).split("").join(", ");
-    speak(formattedText);
-  };
-
-  const generateCaptcha = () => {
-    stop();
-    setInput("");
-    onInputCaptcha("");
-    reloadCaptcha();
-  };
-
-  useEffect(() => {
-    if (captchaImage) {
-      stop();
-      setInput("");
-      onInputCaptcha("");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [captchaImage]);
-
-  return (
-    <>
-      <Box className="captcha-page">
-        <img src={`data:image/png;base64, ${captchaImage}`} alt="Captcha" />
-        <Box className="captcha-page__text-container">
-          <MuiTextField
-            className="captcha-page__text-field"
-            error={captchaErr}
-            helpertext={captchaErr}
-            label={<TextFormatter id="enterCaptcha" />}
-            type="text"
-            maxLength={5}
-            variant="filled"
-            onChange={handleInputValueByUser}
-            value={input}
-            {...props}
-          />
-          <Button
-            className={`captcha-page__speaker-btn ${
-              isSpeaking ? "captcha-page__speaker-btn--active" : ""
-            }`}
-            onClick={handleReadCaptcha}
-            tabIndex={"-1"}
-            aria-label="Audio Captcha"
-            title="Audio Captcha"
-          >
-            <VolumeUpOutlinedIcon width={20} height={20} />
-          </Button>
-          <Button
-            className="captcha-page__reload-btn"
-            onClick={generateCaptcha}
-            tabIndex={"-1"}
-            aria-label="Reload Captcha"
-            title="Reload Captcha"
-          >
-            <RefreshOutlinedIcon width={20} height={20} />
-          </Button>
-        </Box>
-      </Box>
-    </>
-  );
-};
-
-Captcha.propTypes = {
-  captchaErr: PropTypes.string,
-  onInputCaptcha: PropTypes.func,
-  errorRefresh: PropTypes.any,
-  loaclCapchaError: PropTypes.any,
-  onresetError: PropTypes.any,
-  captchaImage: PropTypes.any,
-  reloadCaptcha: PropTypes.any,
-  captchaCode: PropTypes.any,
-};
-export default Captcha;
-====================================================================================================================================
-
-@import "../../mui/spacing.scss";
-@import "../../mui/palette.scss";
-@import "../../mui/typography.scss";
-
-.captcha-page {
-  img {
-    border-radius: --viw(8)
-  }
-  display: flex;
-  margin-top: --vih(32);
-  canvas {
-    width: --viw(168);
-    height: --vih(56);
-  }
-  flex-direction: row;
-  align-items: center;
-
-  &__text-container {
-    display: flex;
-    column-gap: --viw(16);
-
-    .MuiTextField-root {
-      width: --viw(240);
-    }
-    @media only screen and (max-width: 900px) {
-      width: --viw(280);
-    }
-  }
-
-  &__text-field .MuiFilledInput-input,
-  &__text-field .MuiFilledInput-root,
-  &__text-field .MuiFilledInput-root:hover,
-  &__text-field .MuiFilledInput-root.Mui-focused {
-    height: --vih(56);
-  }
-
-  &__text-field {
-    .MuiTextField-root {
-      height: --vih(56);
-    }
-    margin-left: --viw(24);
-  }
-  button {
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    margin-left: 0;
-    cursor: pointer;
-    svg {
-      font-size: --vih(24);
-      transition: transform 0.2s ease, color 0.2s ease;
-    }
-    &:hover svg {
-      transform: scale(1.15);
-      color: #004b87;
-    }
-  }
-
-  &__speaker-btn {
-    margin-left: --viw(16);
-
-    &--active {
-      svg {
-        color: #004b87 !important;
-        animation: pulse-speaker 1.2s infinite ease-in-out;
-      }
-    }
-  }
-
-  &__reload-btn {
-    margin-left: --viw(12);
-  }
-}
-
-@keyframes pulse-speaker {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-
-====================================================================================================================================
-
-
-import { useState, useEffect, useCallback, useRef } from "react";
-
-/**
- * Common Text-to-Speech (TTS) hook for reading any text or digits.
- * 
- * Usage:
- * const { speak, stop, isSpeaking } = useSpeech();
- * speak("Any text or numbers");
- */
-const useSpeech = (defaultOptions = {}) => {
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [voices, setVoices] = useState([]);
-  const speechRequestRef = useRef(0);
-
-  // Load available system voices
-  useEffect(() => {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      return undefined;
-    }
-
-    const loadVoices = () => {
-      setVoices(window.speechSynthesis.getVoices());
-    };
-
-    loadVoices();
-    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
-
-    return () => {
-      speechRequestRef.current += 1;
-      window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
-      window.speechSynthesis.cancel();
-    };
-  }, []);
-
-  const stop = useCallback(() => {
-    speechRequestRef.current += 1;
-
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-
-    setIsSpeaking(false);
-  }, []);
-
-  const speak = useCallback(
-    (content, options = {}) => {
-      if (
-        typeof window === "undefined" ||
-        !("speechSynthesis" in window) ||
-        typeof SpeechSynthesisUtterance === "undefined"
-      ) {
-        return;
-      }
-
-      // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-
-      if (content === undefined || content === null) {
-        return;
-      }
-
-      // Clean HTML tags if any, and normalize whitespace
-      let text = String(content);
-      if (text.includes("<") && text.includes(">")) {
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = text;
-        text = tempDiv.textContent || tempDiv.innerText || "";
-      }
-      text = text.replace(/\s+/g, " ").trim();
-
-      if (!text) {
-        return;
-      }
-
-      const mergedOptions = { ...defaultOptions, ...options };
-      const utterance = new SpeechSynthesisUtterance(text);
-
-      utterance.rate = mergedOptions.rate ?? 0.85;
-      utterance.pitch = mergedOptions.pitch ?? 1;
-      utterance.volume = mergedOptions.volume ?? 1;
-
-      const voiceLang = mergedOptions.lang || "en-IN";
-      if (voices && voices.length > 0) {
-        const preferredVoice = voices.find(
-          (v) =>
-            v.lang?.toLowerCase() === voiceLang.toLowerCase() ||
-            v.lang?.toLowerCase() === "en-us" ||
-            v.lang?.toLowerCase().startsWith("en")
-        );
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
+        &:not(.MuiInputLabel-shrink) {
+          top: 50% !important;
+          transform: translateY(-50%) !important;
+          left: --viw(18) !important;
         }
       }
+======================================================
 
-      const currentRequestId = speechRequestRef.current + 1;
-      speechRequestRef.current = currentRequestId;
-
-      utterance.onstart = () => {
-        if (speechRequestRef.current === currentRequestId) {
-          setIsSpeaking(true);
-        }
-      };
-
-      utterance.onend = () => {
-        if (speechRequestRef.current === currentRequestId) {
-          setIsSpeaking(false);
-        }
-      };
-
-      utterance.onerror = () => {
-        if (speechRequestRef.current === currentRequestId) {
-          setIsSpeaking(false);
-        }
-      };
-
-      window.speechSynthesis.speak(utterance);
-    },
-    [defaultOptions, voices]
-  );
-
-  return {
-    speak,
-    stop,
-    isSpeaking,
-    voices,
-  };
-};
-
-export default useSpeech;
-
-
-
-export { default as useSpeech } from "./useSpeech";
-
+registration-wrapper {
+    &--datepicker {
+      z-index: 2;
+      position: relative;
+    }
